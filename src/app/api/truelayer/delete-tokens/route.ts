@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { adminDb } from '@/lib/firebase-admin';
+import { getAdminDb } from '@/lib/firebase-admin';
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,6 +14,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Find and soft delete the token document for this user/provider combination
+    const adminDb = getAdminDb();
     const snapshot = await adminDb
       .collection('user_tokens')
       .where('user_id', '==', user_id)

@@ -1,4 +1,4 @@
-import { adminDb } from './firebase-admin';
+import { getAdminDb } from './firebase-admin';
 import { TrueLayerTokenResponse, EncryptedTokens } from '@/types/truelayer';
 import { encrypt, decrypt } from './encryption';
 
@@ -26,6 +26,7 @@ export async function storeEncryptedTokens(
     };
 
     // Check if tokens already exist for this user/provider combination
+    const adminDb = getAdminDb();
     const existingSnapshot = await adminDb
       .collection('user_tokens')
       .where('user_id', '==', userId)
@@ -73,6 +74,7 @@ export async function getEncryptedTokens(
   provider: string = 'truelayer'
 ): Promise<EncryptedTokens | null> {
   try {
+    const adminDb = getAdminDb();
     const snapshot = await adminDb
       .collection('user_tokens')
       .where('user_id', '==', userId)
@@ -96,6 +98,7 @@ export async function getAllEncryptedTokensForUser(
   userId: string
 ): Promise<EncryptedTokens[]> {
   try {
+    const adminDb = getAdminDb();
     const snapshot = await adminDb
       .collection('user_tokens')
       .where('user_id', '==', userId)
@@ -119,6 +122,7 @@ export async function restoreDeletedTokens(
   provider: string
 ): Promise<void> {
   try {
+    const adminDb = getAdminDb();
     const snapshot = await adminDb
       .collection('user_tokens')
       .where('user_id', '==', userId)
