@@ -18,7 +18,8 @@ const db = getFirestore();
 
 export async function storeEncryptedTokens(
   tokens: TrueLayerTokenResponse,
-  userId: string
+  userId: string,
+  provider: string = 'truelayer'
 ): Promise<void> {
   try {
     const encryptionKey = process.env.ENCRYPTION_KEY;
@@ -31,14 +32,50 @@ export async function storeEncryptedTokens(
       refresh_token: encrypt(tokens.refresh_token, encryptionKey),
       expires_at: Date.now() + tokens.expires_in * 1000,
       scope: tokens.scope,
-      provider: 'truelayer',
+      provider: provider,
       user_id: userId,
       created_at: Date.now(),
       updated_at: Date.now(),
+      deleted: false,
     };
 
-    await db.collection('user_tokens').doc(userId).set(encryptedTokens);
-    console.log('Tokens stored successfully for user:', userId);
+    // Check if tokens already exist for this user/provider combination
+    const existingSnapshot = await db
+      .collection('user_tokens')
+      .where('user_id', '==', userId)
+      .where('provider', '==', provider)
+      .limit(1)
+      .get();
+
+    if (!existingSnapshot.empty) {
+      // Update existing document
+      const docId = existingSnapshot.docs[0].id;
+      await db
+        .collection('user_tokens')
+        .doc(docId)
+        .update({
+          ...encryptedTokens,
+          created_at: existingSnapshot.docs[0].data().created_at, // Preserve original creation time
+          updated_at: Date.now(),
+          deleted: false, // Ensure it's not marked as deleted
+          deleted_at: null, // Clear deletion timestamp
+        });
+      console.log(
+        'Tokens updated successfully for user:',
+        userId,
+        'provider:',
+        provider
+      );
+    } else {
+      // Create new document with random ID
+      await db.collection('user_tokens').add(encryptedTokens);
+      console.log(
+        'Tokens stored successfully for user:',
+        userId,
+        'provider:',
+        provider
+      );
+    }
   } catch (error) {
     console.error('Error storing encrypted tokens:', error);
     throw error;
@@ -46,18 +83,79 @@ export async function storeEncryptedTokens(
 }
 
 export async function getEncryptedTokens(
-  userId: string
+  userId: string,
+  provider: string = 'truelayer'
 ): Promise<EncryptedTokens | null> {
   try {
-    const doc = await db.collection('user_tokens').doc(userId).get();
+    const snapshot = await db
+      .collection('user_tokens')
+      .where('user_id', '==', userId)
+      .where('provider', '==', provider)
+      .where('deleted', '==', false)
+      .limit(1)
+      .get();
 
-    if (!doc.exists) {
+    if (snapshot.empty) {
       return null;
     }
 
-    return doc.data() as EncryptedTokens;
+    return snapshot.docs[0].data() as EncryptedTokens;
   } catch (error) {
     console.error('Error retrieving encrypted tokens:', error);
+    throw error;
+  }
+}
+
+export async function getAllEncryptedTokensForUser(
+  userId: string
+): Promise<EncryptedTokens[]> {
+  try {
+    const snapshot = await db
+      .collection('user_tokens')
+      .where('user_id', '==', userId)
+      .where('deleted', '==', false)
+      .get();
+
+    const tokens: EncryptedTokens[] = [];
+    snapshot.forEach((doc) => {
+      tokens.push(doc.data() as EncryptedTokens);
+    });
+
+    return tokens;
+  } catch (error) {
+    console.error('Error retrieving all encrypted tokens for user:', error);
+    throw error;
+  }
+}
+
+export async function restoreDeletedTokens(
+  userId: string,
+  provider: string
+): Promise<void> {
+  try {
+    const snapshot = await db
+      .collection('user_tokens')
+      .where('user_id', '==', userId)
+      .where('provider', '==', provider)
+      .where('deleted', '==', true)
+      .limit(1)
+      .get();
+
+    if (!snapshot.empty) {
+      await snapshot.docs[0].ref.update({
+        deleted: false,
+        deleted_at: null,
+        updated_at: Date.now(),
+      });
+      console.log(
+        '✅ Tokens restored for user:',
+        userId,
+        'provider:',
+        provider
+      );
+    }
+  } catch (error) {
+    console.error('Error restoring deleted tokens:', error);
     throw error;
   }
 }

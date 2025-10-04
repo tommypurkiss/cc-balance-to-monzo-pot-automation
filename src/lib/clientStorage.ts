@@ -1,5 +1,5 @@
 // Client-side Storage Service for TrueLayer tokens
-// Uses localStorage for immediate access and API calls for Firestore operations
+// Uses Firestore for persistent storage via API calls
 // Avoids importing firebase-admin in client components
 
 export interface TrueLayerSession {
@@ -62,83 +62,105 @@ class ClientStorageService {
   private sessions: TrueLayerSession[] = [];
   private refreshingTokens: Set<string> = new Set();
   private userId: string = '';
+  private dataCache: {
+    [provider: string]: {
+      data: any;
+      timestamp: number;
+    };
+  } = {};
+  private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
   // Initialize with user ID
   setUserId(userId: string) {
     this.userId = userId;
   }
 
-  // Initialize sessions from localStorage
-  initializeSessions(): TrueLayerSession[] {
+  // Cache management
+  private isCacheValid(provider: string): boolean {
+    const cached = this.dataCache[provider];
+    if (!cached) return false;
+    return Date.now() - cached.timestamp < this.CACHE_DURATION;
+  }
+
+  private setCache(provider: string, data: any): void {
+    this.dataCache[provider] = {
+      data,
+      timestamp: Date.now(),
+    };
+  }
+
+  private getCache(provider: string): any | null {
+    if (this.isCacheValid(provider)) {
+      return this.dataCache[provider].data;
+    }
+    return null;
+  }
+
+  private clearCache(provider?: string): void {
+    if (provider) {
+      delete this.dataCache[provider];
+    } else {
+      this.dataCache = {};
+    }
+  }
+
+  // Public method to force refresh data (clears cache)
+  async refreshData(): Promise<{
+    [provider: string]: {
+      cards: (CardData & { balance?: CardBalance })[];
+      accounts: (AccountData & { balance?: AccountBalance })[];
+    };
+  }> {
+    this.clearCache(); // Clear all cached data
+    return this.getAllData();
+  }
+
+  // Initialize sessions from Firestore only
+  async initializeSessions(): Promise<TrueLayerSession[]> {
     if (typeof window === 'undefined') return [];
 
     this.sessions = [];
-    this.loadFromLocalStorage();
+
+    // Load from Firestore if we have a user ID
+    if (this.userId) {
+      await this.loadFromFirestore();
+    }
+
     return this.sessions;
   }
 
-  // Load sessions from localStorage
-  private loadFromLocalStorage(): void {
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && key.startsWith('truelayer_') && key.endsWith('_token')) {
-        const provider = key.replace('truelayer_', '').replace('_token', '');
-        const accessToken = localStorage.getItem(key) || '';
-        const refreshToken =
-          localStorage.getItem(`truelayer_${provider}_refresh_token`) ||
-          undefined;
-        const expiresAtStr = localStorage.getItem(
-          `truelayer_${provider}_expires_at`
-        );
-        const createdAtStr = localStorage.getItem(
-          `truelayer_${provider}_created_at`
-        );
+  // Load sessions from Firestore (for cross-browser persistence)
+  private async loadFromFirestore(): Promise<void> {
+    try {
+      const response = await fetch('/api/truelayer/get-user-tokens', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: this.userId }),
+      });
 
-        const session: TrueLayerSession = {
-          provider,
-          accessToken,
-          refreshToken,
-          expiresAt: expiresAtStr ? parseInt(expiresAtStr) : undefined,
-          createdAt: createdAtStr ? parseInt(createdAtStr) : Date.now(),
-          userId: this.userId,
-        };
+      if (response.ok) {
+        const tokens = await response.json();
+        console.log('✅ Loaded tokens from Firestore:', tokens);
 
-        if (this.isSessionValid(session)) {
+        // Convert Firestore tokens to sessions
+        for (const token of tokens) {
+          const session: TrueLayerSession = {
+            provider: token.provider,
+            accessToken: token.access_token,
+            refreshToken: token.refresh_token,
+            expiresAt: token.expires_at,
+            createdAt: token.created_at,
+            userId: this.userId,
+          };
           this.sessions.push(session);
-        } else {
-          this.removeSession(provider);
         }
       }
+    } catch (error) {
+      console.warn('⚠️ Failed to load tokens from Firestore:', error);
     }
   }
 
-  // Sync session to localStorage
-  private syncToLocalStorage(session: TrueLayerSession): void {
-    if (typeof window === 'undefined') return;
-
-    localStorage.setItem(
-      `truelayer_${session.provider}_token`,
-      session.accessToken
-    );
-    if (session.refreshToken) {
-      localStorage.setItem(
-        `truelayer_${session.provider}_refresh_token`,
-        session.refreshToken
-      );
-    }
-    if (session.expiresAt) {
-      localStorage.setItem(
-        `truelayer_${session.provider}_expires_at`,
-        session.expiresAt.toString()
-      );
-    }
-    localStorage.setItem(
-      `truelayer_${session.provider}_created_at`,
-      session.createdAt.toString()
-    );
-  }
-
-  // Add a new session (store in localStorage and sync to Firestore via API)
+  // Add a new session (store in Firestore only)
   async addSession(session: TrueLayerSession): Promise<void> {
     // Remove existing session for this provider
     this.sessions = this.sessions.filter(
@@ -146,10 +168,7 @@ class ClientStorageService {
     );
     this.sessions.push(session);
 
-    // Store in localStorage (immediate access)
-    this.syncToLocalStorage(session);
-
-    // Sync to Firestore via API call (if we have a user ID)
+    // Store in Firestore via API call (if we have a user ID)
     if (this.userId) {
       try {
         await fetch('/api/truelayer/store-tokens', {
@@ -164,26 +183,46 @@ class ClientStorageService {
             token_type: 'Bearer',
             scope: 'info accounts balance transactions cards offline_access',
             user_id: this.userId,
+            provider: session.provider,
           }),
         });
-        console.log('✅ Tokens synced to Firestore via API');
+        console.log('✅ Tokens stored in Firestore');
       } catch (error) {
-        console.warn('⚠️ Failed to sync tokens to Firestore:', error);
+        console.warn('⚠️ Failed to store tokens in Firestore:', error);
       }
     }
   }
 
-  // Remove a session (from localStorage)
+  // Remove a session (clear local state only - tokens remain in Firestore)
   async removeSession(provider: string): Promise<void> {
     this.sessions = this.sessions.filter((s) => s.provider !== provider);
+    this.clearCache(provider); // Clear cache for this provider
+    console.log(
+      `✅ Session cleared for ${provider} (tokens remain in Firestore)`
+    );
+  }
 
-    // Remove from localStorage
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem(`truelayer_${provider}_token`);
-      localStorage.removeItem(`truelayer_${provider}_refresh_token`);
-      localStorage.removeItem(`truelayer_${provider}_expires_at`);
-      localStorage.removeItem(`truelayer_${provider}_created_at`);
+  // Permanently delete tokens from Firestore (for account disconnection)
+  async deleteTokens(provider: string): Promise<void> {
+    // Remove from Firestore via API call (if we have a user ID)
+    if (this.userId) {
+      try {
+        await fetch('/api/truelayer/delete-tokens', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            user_id: this.userId,
+            provider: provider,
+          }),
+        });
+        console.log('✅ Tokens permanently deleted from Firestore');
+      } catch (error) {
+        console.warn('⚠️ Failed to delete tokens from Firestore:', error);
+      }
     }
+
+    // Also clear local session
+    await this.removeSession(provider);
   }
 
   // Check if token is expired or will expire soon (within 1 minute)
@@ -386,6 +425,15 @@ class ClientStorageService {
     let hasAnyData = false;
 
     for (const session of this.sessions) {
+      // Check cache first
+      const cachedData = this.getCache(session.provider);
+      if (cachedData) {
+        console.log(`✅ Using cached data for ${session.provider}`);
+        allData[session.provider] = cachedData;
+        hasAnyData = true;
+        continue;
+      }
+
       try {
         allData[session.provider] = {
           cards: [],
@@ -395,6 +443,7 @@ class ClientStorageService {
         // Get cards and their balances
         try {
           const cards = await this.getCards(session.provider);
+          console.log('cards', cards);
           for (const card of cards) {
             try {
               const balance = await this.getCardBalance(
@@ -426,7 +475,9 @@ class ClientStorageService {
         // Get accounts and their balances
         try {
           const accounts = await this.getAccounts(session.provider);
+          console.log('accounts', accounts);
           for (const account of accounts) {
+            // console.log('account', account);
             try {
               const balance = await this.getAccountBalance(
                 account.account_id,
@@ -456,6 +507,10 @@ class ClientStorageService {
             throw error;
           }
         }
+
+        // Cache the data for this provider
+        this.setCache(session.provider, allData[session.provider]);
+        console.log(`💾 Cached data for ${session.provider}`);
       } catch (error) {
         console.error(`Failed to get data for ${session.provider}:`, error);
         if (

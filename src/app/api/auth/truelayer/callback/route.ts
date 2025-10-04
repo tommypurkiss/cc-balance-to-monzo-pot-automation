@@ -14,6 +14,9 @@ export async function GET(request: NextRequest) {
   const provider =
     request.cookies.get('truelayer_provider')?.value || 'truelayer';
 
+  // Extract user ID from state parameter (format: "randomState:userId")
+  const userId = state?.includes(':') ? state.split(':')[1] : null;
+
   console.log('🔍 TrueLayer OAuth Callback - URL:', request.url);
   console.log('🔍 Callback parameters:', {
     code: code?.substring(0, 20) + '...',
@@ -43,7 +46,13 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(redirectUrl);
   }
 
-  if (!state || state !== storedState) {
+  // Validate state parameter (extract random part for comparison)
+  const randomStatePart = state?.includes(':') ? state.split(':')[0] : state;
+  const storedRandomStatePart = storedState?.includes(':')
+    ? storedState.split(':')[0]
+    : storedState;
+
+  if (!state || !storedState || randomStatePart !== storedRandomStatePart) {
     console.error('❌ State mismatch during TrueLayer OAuth callback.');
     const redirectUrl = new URL('/', request.url);
     redirectUrl.searchParams.set('truelayer_error', 'true');
@@ -143,19 +152,26 @@ export async function GET(request: NextRequest) {
 
     // Store tokens in Firestore (secure, persistent storage)
     try {
-      // For now, use a placeholder user ID - in production, get from authenticated user
-      const userId = 'user-' + Date.now(); // TODO: Get from authenticated user session
+      if (!userId) {
+        console.warn(
+          '⚠️ No user ID provided - tokens will not be stored persistently'
+        );
+        // Still continue with the flow, but tokens won't be stored in Firestore
+      } else {
+        console.log('✅ Using user ID from query params:', userId);
 
-      await storeEncryptedTokens(
-        {
-          access_token,
-          refresh_token: refresh_token || '',
-          expires_in,
-          token_type: 'Bearer',
-          scope: 'info accounts balance transactions cards offline_access',
-        },
-        userId
-      );
+        await storeEncryptedTokens(
+          {
+            access_token,
+            refresh_token: refresh_token || '',
+            expires_in,
+            token_type: 'Bearer',
+            scope: 'info accounts balance transactions cards offline_access',
+          },
+          userId,
+          actualProvider
+        );
+      }
 
       console.log('✅ Tokens stored securely in Firestore');
     } catch (error) {

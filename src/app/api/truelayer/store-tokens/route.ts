@@ -11,6 +11,7 @@ export async function POST(request: NextRequest) {
       token_type,
       scope,
       user_id,
+      provider = 'truelayer',
     } = body;
 
     if (!access_token || !user_id) {
@@ -30,7 +31,8 @@ export async function POST(request: NextRequest) {
         scope:
           scope || 'info accounts balance transactions cards offline_access',
       },
-      user_id
+      user_id,
+      provider
     );
 
     return NextResponse.json({ success: true });

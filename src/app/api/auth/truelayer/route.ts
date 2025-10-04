@@ -14,6 +14,7 @@ function generateRandomState(length: number = 32): string {
 export async function GET(request: NextRequest): Promise<NextResponse> {
   const { searchParams } = new URL(request.url);
   const provider = searchParams.get('provider'); // Optional provider parameter
+  const userId = searchParams.get('userId'); // User ID from authenticated user
 
   const clientId = process.env.TRUELAYER_CLIENT_ID;
   const clientSecret = process.env.TRUELAYER_CLIENT_SECRET;
@@ -40,7 +41,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const state = generateRandomState();
+  // Generate state that includes both random string and user ID
+  const randomState = generateRandomState();
+  const state = userId ? `${randomState}:${userId}` : randomState;
 
   const url = new URL('https://auth.truelayer.com/');
   url.searchParams.set('response_type', 'code');

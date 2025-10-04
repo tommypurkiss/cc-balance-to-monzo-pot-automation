@@ -64,8 +64,10 @@ export interface EncryptedTokens {
   refresh_token: string;
   expires_at: number;
   scope: string;
-  provider: 'truelayer';
+  provider: string;
   user_id: string;
   created_at: number;
   updated_at: number;
+  deleted?: boolean;
+  deleted_at?: number;
 }
