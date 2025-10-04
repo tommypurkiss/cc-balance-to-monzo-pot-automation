@@ -122,7 +122,7 @@ export default function Dashboard() {
       url.searchParams.delete('error_message');
       window.history.replaceState({}, document.title, url.pathname);
     }
-  }, [searchParams]);
+  }, [searchParams, currentUser?.uid]);
 
   // Separate useEffect for clearing notifications
   useEffect(() => {

@@ -1,20 +1,6 @@
-import { initializeApp, getApps, cert } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
+import { adminDb } from './firebase-admin';
 import { TrueLayerTokenResponse, EncryptedTokens } from '@/types/truelayer';
 import { encrypt, decrypt } from './encryption';
-
-// Initialize Firebase Admin SDK
-if (!getApps().length) {
-  initializeApp({
-    credential: cert({
-      projectId: process.env.FIREBASE_PROJECT_ID,
-      privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-    }),
-  });
-}
-
-const db = getFirestore();
 
 export async function storeEncryptedTokens(
   tokens: TrueLayerTokenResponse,
@@ -40,7 +26,7 @@ export async function storeEncryptedTokens(
     };
 
     // Check if tokens already exist for this user/provider combination
-    const existingSnapshot = await db
+    const existingSnapshot = await adminDb
       .collection('user_tokens')
       .where('user_id', '==', userId)
       .where('provider', '==', provider)
@@ -50,7 +36,7 @@ export async function storeEncryptedTokens(
     if (!existingSnapshot.empty) {
       // Update existing document
       const docId = existingSnapshot.docs[0].id;
-      await db
+      await adminDb
         .collection('user_tokens')
         .doc(docId)
         .update({
@@ -68,7 +54,7 @@ export async function storeEncryptedTokens(
       );
     } else {
       // Create new document with random ID
-      await db.collection('user_tokens').add(encryptedTokens);
+      await adminDb.collection('user_tokens').add(encryptedTokens);
       console.log(
         'Tokens stored successfully for user:',
         userId,
@@ -87,7 +73,7 @@ export async function getEncryptedTokens(
   provider: string = 'truelayer'
 ): Promise<EncryptedTokens | null> {
   try {
-    const snapshot = await db
+    const snapshot = await adminDb
       .collection('user_tokens')
       .where('user_id', '==', userId)
       .where('provider', '==', provider)
@@ -110,7 +96,7 @@ export async function getAllEncryptedTokensForUser(
   userId: string
 ): Promise<EncryptedTokens[]> {
   try {
-    const snapshot = await db
+    const snapshot = await adminDb
       .collection('user_tokens')
       .where('user_id', '==', userId)
       .where('deleted', '==', false)
@@ -133,7 +119,7 @@ export async function restoreDeletedTokens(
   provider: string
 ): Promise<void> {
   try {
-    const snapshot = await db
+    const snapshot = await adminDb
       .collection('user_tokens')
       .where('user_id', '==', userId)
       .where('provider', '==', provider)
