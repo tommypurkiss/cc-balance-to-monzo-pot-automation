@@ -1,16 +1,65 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useUser } from '@/contexts/UserContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { UpdateUserData } from '@/types/user';
+import { clientStorage } from '@/lib/clientStorage';
+
+const getProviderDisplayName = (providerId: string) => {
+  const providerNames: { [key: string]: string } = {
+    amex: 'American Express',
+    'ob-amex': 'American Express',
+    barclaycard: 'Barclaycard',
+    'ob-barclaycard': 'Barclaycard',
+    hsbc: 'HSBC',
+    'ob-hsbc': 'HSBC',
+    lloyds: 'Lloyds Bank',
+    'ob-lloyds': 'Lloyds Bank',
+    monzo: 'Monzo',
+    'ob-monzo': 'Monzo',
+    natwest: 'NatWest',
+    'ob-natwest': 'NatWest',
+    santander: 'Santander',
+    'ob-santander': 'Santander',
+    truelayer: 'TrueLayer',
+  };
+  return providerNames[providerId] || providerId;
+};
 
 export default function UserProfile() {
   const { userProfile, loading, error, updateProfile } = useUser();
   const { logout } = useAuth();
   const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
+  const [providers, setProviders] = useState<string[]>([]);
+
+  // Load connected providers
+  useEffect(() => {
+    const loadProviders = async () => {
+      try {
+        const data = await clientStorage.getAllData();
+        const providerList = Object.keys(data);
+        setProviders(providerList);
+      } catch (error) {
+        console.error('Failed to load providers:', error);
+      }
+    };
+
+    loadProviders();
+  }, []);
+
+  const handleLogout = async (provider: string) => {
+    await clientStorage.removeSession(provider);
+    setProviders((prev) => prev.filter((p) => p !== provider));
+  };
+
+  const handleDisconnect = async (provider: string) => {
+    await clientStorage.deleteTokens(provider);
+    setProviders((prev) => prev.filter((p) => p !== provider));
+  };
+
   const [formData, setFormData] = useState({
     displayName: userProfile?.displayName || '',
     preferences: {
@@ -437,6 +486,47 @@ export default function UserProfile() {
                 )}
               </div>
             </div>
+          </div>
+
+          {/* Connected Providers */}
+          <div className="pt-6 border-t border-gray-700">
+            <h3 className="text-lg font-semibold text-white mb-4">
+              🔧 Connected Providers
+            </h3>
+            {providers.length > 0 ? (
+              <div className="space-y-2">
+                {providers.map((provider) => (
+                  <div
+                    key={provider}
+                    className="flex items-center justify-between bg-gray-700 p-3 rounded-lg"
+                  >
+                    <span className="text-white">
+                      {getProviderDisplayName(provider)}
+                    </span>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleLogout(provider)}
+                        className="bg-gray-500 text-white px-3 py-1 rounded text-sm hover:bg-gray-600 font-medium"
+                        title="Clear session (tokens remain saved)"
+                      >
+                        Logout
+                      </button>
+                      <button
+                        onClick={() => handleDisconnect(provider)}
+                        className="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600 font-medium"
+                        title="Permanently disconnect account"
+                      >
+                        Disconnect
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-gray-400 text-center py-4">
+                No connected providers
+              </div>
+            )}
           </div>
 
           {/* Account Actions */}

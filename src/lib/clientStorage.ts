@@ -240,6 +240,11 @@ class ClientStorageService {
     return now - session.createdAt < ninetyDays;
   }
 
+  // Check if there are any active sessions
+  hasSessions(): boolean {
+    return this.sessions.length > 0;
+  }
+
   // Get valid token for a provider (with automatic refresh)
   getValidToken(provider: string): string | null {
     const session = this.sessions.find((s) => s.provider === provider);

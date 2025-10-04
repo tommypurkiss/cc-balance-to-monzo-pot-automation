@@ -525,41 +525,6 @@ export default function TrueLayerDashboard() {
           </div>
         </div>
       )}
-
-      {/* Provider Management Section */}
-      <div className="border border-gray-600 bg-gray-800 p-6 rounded-lg">
-        <h2 className="text-xl font-semibold text-white mb-4">
-          🔧 Connected Providers
-        </h2>
-        <div className="space-y-2">
-          {providers.map((provider) => (
-            <div
-              key={provider}
-              className="flex items-center justify-between bg-gray-700 p-3 rounded-lg"
-            >
-              <span className="text-white">
-                {getProviderDisplayName(provider)}
-              </span>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => handleLogout(provider)}
-                  className="bg-gray-500 text-white px-3 py-1 rounded text-sm hover:bg-gray-600 font-medium"
-                  title="Clear session (tokens remain saved)"
-                >
-                  Logout
-                </button>
-                <button
-                  onClick={() => handleDisconnect(provider)}
-                  className="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600 font-medium"
-                  title="Permanently disconnect account"
-                >
-                  Disconnect
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
     </div>
   );
 }
