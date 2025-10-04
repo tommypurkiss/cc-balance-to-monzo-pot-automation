@@ -4,14 +4,11 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUser } from '@/contexts/UserContext';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
 import TrueLayerDashboard from './TrueLayerDashboard';
-import { clientStorage } from '@/lib/clientStorage';
 
 export default function Dashboard() {
   const { currentUser, logout } = useAuth();
   const { userProfile } = useUser();
-  const searchParams = useSearchParams();
   const [notification, setNotification] = useState<{
     type: 'success' | 'error';
     message: string;

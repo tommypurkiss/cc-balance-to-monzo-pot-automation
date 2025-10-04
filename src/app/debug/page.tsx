@@ -93,14 +93,11 @@ export default function DebugPage() {
                 const monzoAccounts = providerData.accounts.filter(
                   (account) => {
                     console.log('🔍 Debug: Account provider info:', {
-                      provider_id: account.provider_id,
                       provider: account.provider,
                       display_name: account.display_name,
                     });
                     return (
-                      account.provider_id === 'ob-monzo' ||
                       account.provider?.provider_id === 'ob-monzo' ||
-                      account.provider_id === 'monzo' ||
                       account.provider?.provider_id === 'monzo' ||
                       account.display_name?.toLowerCase().includes('monzo')
                     );
