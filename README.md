@@ -93,7 +93,15 @@ MONZO_CLIENT_ID=your_monzo_client_id
 MONZO_CLIENT_SECRET=your_monzo_client_secret
 MONZO_REDIRECT_URI=http://localhost:3000/api/auth/monzo/callback
 
-# Firebase
+# Firebase (Client-side - for authentication)
+NEXT_PUBLIC_FIREBASE_API_KEY=your_firebase_api_key
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_project_id.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_firebase_project_id
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_project_id.appspot.com
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_messaging_sender_id
+NEXT_PUBLIC_FIREBASE_APP_ID=your_firebase_app_id
+
+# Firebase (Server-side - for admin SDK)
 FIREBASE_PROJECT_ID=your_firebase_project_id
 FIREBASE_PRIVATE_KEY=your_firebase_private_key
 FIREBASE_CLIENT_EMAIL=your_firebase_client_email
@@ -101,6 +109,24 @@ FIREBASE_CLIENT_EMAIL=your_firebase_client_email
 # App Configuration
 ENCRYPTION_KEY=your_32_character_encryption_key
 ```
+
+### Firebase Setup
+
+1. **Get Firebase Configuration**:
+   - Go to your Firebase project settings
+   - Scroll down to "Your apps" section
+   - Click on the web app icon (</>) to add a web app
+   - Copy the configuration values to your `.env.local` file
+
+2. **Enable Authentication**:
+   - In Firebase Console, go to Authentication > Sign-in method
+   - Enable "Email/Password" provider
+   - Optionally enable other providers as needed
+
+3. **Set up Firestore**:
+   - Go to Firestore Database in Firebase Console
+   - Create database in production mode
+   - Set up security rules (start with test mode for development)
 
 ## 📋 Features
 
