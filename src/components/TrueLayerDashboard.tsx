@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useBankingData } from '@/contexts/BankingDataContext';
 import {
   clientStorage,
   CardData,
@@ -9,11 +10,6 @@ import {
   AccountData,
   AccountBalance,
 } from '@/lib/clientStorage';
-
-interface ProviderData {
-  cards: (CardData & { balance?: CardBalance })[];
-  accounts: (AccountData & { balance?: AccountBalance })[];
-}
 
 const getProviderDisplayName = (providerId: string) => {
   const providerNames: { [key: string]: string } = {
@@ -45,72 +41,19 @@ const formatCurrency = (amount: number, currency: string) => {
 
 export default function TrueLayerDashboard() {
   const { currentUser } = useAuth();
-  const [data, setData] = useState<{ [provider: string]: ProviderData }>({});
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data, loading, error, loadData, removeProvider } = useBankingData();
   const [savingsExpanded, setSavingsExpanded] = useState<{
     [provider: string]: boolean;
   }>({});
 
-  const loadData = useCallback(
-    async (forceRefresh = false) => {
-      try {
-        setLoading(true);
-        setError(null);
-
-        // Set the authenticated user ID in clientStorage
-        if (currentUser?.uid) {
-          clientStorage.setUserId(currentUser.uid);
-          console.log('✅ Set user ID in clientStorage:', currentUser.uid);
-        }
-
-        // Initialize sessions and load all data
-        await clientStorage.initializeSessions();
-        const allData = forceRefresh
-          ? await clientStorage.refreshData()
-          : await clientStorage.getAllData();
-        setData(allData);
-      } catch (err) {
-        const errorMessage =
-          err instanceof Error ? err.message : 'Unknown error';
-
-        // Check if it's an authentication error
-        if (
-          errorMessage.includes('invalid_token') ||
-          errorMessage.includes('401') ||
-          errorMessage.includes('unauthorized')
-        ) {
-          setError(
-            'Your bank connections have expired. Please reconnect your accounts to continue.'
-          );
-          // Clear old data when authentication fails
-          setData({});
-        } else {
-          setError('Failed to load data: ' + errorMessage);
-        }
-      } finally {
-        setLoading(false);
-      }
-    },
-    [currentUser]
-  );
-
   const handleLogout = async (provider: string) => {
     await clientStorage.removeSession(provider);
-    setData((prev) => {
-      const newData = { ...prev };
-      delete newData[provider];
-      return newData;
-    });
+    removeProvider(provider);
   };
 
   const handleDisconnect = async (provider: string) => {
     await clientStorage.deleteTokens(provider);
-    setData((prev) => {
-      const newData = { ...prev };
-      delete newData[provider];
-      return newData;
-    });
+    removeProvider(provider);
   };
 
   const toggleSavingsExpanded = (provider: string) => {
@@ -119,12 +62,6 @@ export default function TrueLayerDashboard() {
       [provider]: !prev[provider],
     }));
   };
-
-  useEffect(() => {
-    if (currentUser) {
-      loadData();
-    }
-  }, [currentUser, loadData]);
 
   if (loading) {
     return (

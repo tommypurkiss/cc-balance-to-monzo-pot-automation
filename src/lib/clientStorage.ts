@@ -73,6 +73,7 @@ class ClientStorageService {
   // Initialize with user ID
   setUserId(userId: string) {
     this.userId = userId;
+    console.log('✅ Set user ID in clientStorage:', userId);
   }
 
   // Cache management
