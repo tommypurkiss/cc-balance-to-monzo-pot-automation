@@ -20,7 +20,8 @@ You're using **TWO** different OAuth connections:
    - **Name:** CC Balance to Pot Automation
    - **Logo:** (optional)
    - **Redirect URI:** `http://localhost:3000/api/auth/monzo/callback` (for development)
-     - For production: `https://yourdomain.com/api/auth/monzo/callback`
+     - For production: `https://cc-balance-to-monzo.netlify.app/api/auth/monzo/callback`
+     - **Note:** You can add both URLs in the Monzo dashboard for testing
    - **Description:** Automated transfers to credit card pot
    - **Confidentiality:** Confidential
 
@@ -35,7 +36,10 @@ Add to your `.env.local` file:
 # Monzo OAuth (for pot transfers)
 MONZO_CLIENT_ID=your_monzo_client_id_here
 MONZO_CLIENT_SECRET=your_monzo_client_secret_here
+# For development (optional - will auto-detect if not set):
 MONZO_REDIRECT_URI=http://localhost:3000/api/auth/monzo/callback
+# For production (optional - will auto-detect if not set):
+# MONZO_REDIRECT_URI=https://cc-balance-to-monzo.netlify.app/api/auth/monzo/callback
 ```
 
 ### 3. Enable Automation in Dashboard

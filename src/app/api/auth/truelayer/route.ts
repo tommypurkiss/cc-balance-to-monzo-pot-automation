@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getTrueLayerRedirectUri, getBaseUrl } from '@/lib/urls';
 
 function generateRandomState(length: number = 32): string {
   const charset =
@@ -18,9 +19,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
   const clientId = process.env.TRUELAYER_CLIENT_ID;
   const clientSecret = process.env.TRUELAYER_CLIENT_SECRET;
-  const redirectUri =
-    process.env.TRUELAYER_REDIRECT_URI ||
-    'http://localhost:3000/api/auth/truelayer/callback';
+  const redirectUri = getTrueLayerRedirectUri();
 
   if (!clientId || !clientSecret || !redirectUri) {
     return NextResponse.json(
@@ -30,8 +29,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         instructions: {
           step1:
             'Go to https://console.truelayer.com/ and create a client application',
-          step2:
-            'Set redirect URI to: http://localhost:3000/api/auth/truelayer/callback',
+          step2: `Set redirect URI to: ${getBaseUrl()}/api/auth/truelayer/callback`,
           step3:
             'Create .env.local file with your TRUELAYER_CLIENT_ID, TRUELAYER_CLIENT_SECRET, and TRUELAYER_REDIRECT_URI',
           step4: 'Restart the dev server',
