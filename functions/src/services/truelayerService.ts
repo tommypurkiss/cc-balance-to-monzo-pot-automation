@@ -18,12 +18,10 @@ interface AccountBalance {
 }
 
 export class TrueLayerService {
-  private encryptionKey: string;
   private clientId: string;
   private clientSecret: string;
 
-  constructor(encryptionKey: string, clientId: string, clientSecret: string) {
-    this.encryptionKey = encryptionKey;
+  constructor(clientId: string, clientSecret: string) {
     this.clientId = clientId;
     this.clientSecret = clientSecret;
   }
@@ -40,18 +38,12 @@ export class TrueLayerService {
       throw new Error(`No tokens found for user ${userId}`);
     }
 
-    const tokens = await decryptTokens(encryptedTokens, this.encryptionKey);
+    const tokens = await decryptTokens(encryptedTokens);
 
     // Check if token is expired
     if (Date.now() >= tokens.expires_at) {
       console.log(`Token expired for user ${userId}, refreshing...`);
-      await refreshTokens(
-        userId,
-        provider,
-        this.encryptionKey,
-        this.clientId,
-        this.clientSecret
-      );
+      await refreshTokens(userId, provider, this.clientId, this.clientSecret);
 
       // Get the refreshed tokens
       const refreshedEncryptedTokens = await getEncryptedTokens(
@@ -61,10 +53,7 @@ export class TrueLayerService {
       if (!refreshedEncryptedTokens) {
         throw new Error('Failed to get refreshed tokens');
       }
-      const refreshedTokens = await decryptTokens(
-        refreshedEncryptedTokens,
-        this.encryptionKey
-      );
+      const refreshedTokens = await decryptTokens(refreshedEncryptedTokens);
       return refreshedTokens.access_token;
     }
 

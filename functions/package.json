@@ -2,7 +2,7 @@
   "name": "functions",
   "version": "1.0.0",
   "description": "Firebase Functions for CC Balance to Monzo Pot Automation",
-  "main": "lib/scheduledPotTransfer.js",
+  "main": "lib/index.js",
   "scripts": {
     "build": "tsc",
     "watch": "tsc --watch",

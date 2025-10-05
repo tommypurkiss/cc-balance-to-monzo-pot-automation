@@ -1,6 +1,6 @@
 import { getAdminDb } from './firebase-admin';
 import { TrueLayerTokenResponse, EncryptedTokens } from '@/types/truelayer';
-import { encrypt, decrypt } from './encryption';
+import { encrypt, decrypt } from './encryptionService';
 
 export async function storeEncryptedTokens(
   tokens: TrueLayerTokenResponse,
@@ -8,14 +8,19 @@ export async function storeEncryptedTokens(
   provider: string = 'truelayer'
 ): Promise<void> {
   try {
-    const encryptionKey = process.env.ENCRYPTION_KEY;
-    if (!encryptionKey) {
-      throw new Error('ENCRYPTION_KEY environment variable is not set');
-    }
+    console.log(
+      `🔍 FRONTEND ENCRYPTION DEBUG: Encrypting tokens for provider: ${provider}`
+    );
+    console.log(
+      `🔍 FRONTEND ENCRYPTION DEBUG: Access token length: ${tokens.access_token.length}`
+    );
+    console.log(
+      `🔍 FRONTEND ENCRYPTION DEBUG: Access token first 50 chars: ${tokens.access_token.substring(0, 50)}...`
+    );
 
     const encryptedTokens: EncryptedTokens = {
-      access_token: encrypt(tokens.access_token, encryptionKey),
-      refresh_token: encrypt(tokens.refresh_token, encryptionKey),
+      access_token: await encrypt(tokens.access_token),
+      refresh_token: await encrypt(tokens.refresh_token),
       expires_at: Date.now() + tokens.expires_in * 1000,
       scope: tokens.scope,
       provider: provider,
@@ -24,6 +29,13 @@ export async function storeEncryptedTokens(
       updated_at: Date.now(),
       deleted: false,
     };
+
+    console.log(
+      `🔍 FRONTEND ENCRYPTION DEBUG: Encrypted access token length: ${encryptedTokens.access_token.length}`
+    );
+    console.log(
+      `🔍 FRONTEND ENCRYPTION DEBUG: Encrypted access token first 50 chars: ${encryptedTokens.access_token.substring(0, 50)}...`
+    );
 
     // Check if tokens already exist for this user/provider combination
     const adminDb = getAdminDb();
@@ -152,19 +164,16 @@ export async function restoreDeletedTokens(
 
 export async function decryptTokens(encryptedTokens: EncryptedTokens): Promise<{
   access_token: string;
-  refresh_token: string;
+  refresh_token?: string;
   expires_at: number;
   scope: string;
 }> {
   try {
-    const encryptionKey = process.env.ENCRYPTION_KEY;
-    if (!encryptionKey) {
-      throw new Error('ENCRYPTION_KEY environment variable is not set');
-    }
-
     return {
-      access_token: decrypt(encryptedTokens.access_token, encryptionKey),
-      refresh_token: decrypt(encryptedTokens.refresh_token, encryptionKey),
+      access_token: await decrypt(encryptedTokens.access_token),
+      refresh_token: encryptedTokens.refresh_token
+        ? await decrypt(encryptedTokens.refresh_token)
+        : undefined,
       expires_at: encryptedTokens.expires_at,
       scope: encryptedTokens.scope,
     };
@@ -195,7 +204,7 @@ export async function refreshTokens(userId: string): Promise<EncryptedTokens> {
           grant_type: 'refresh_token',
           client_id: process.env.TRUELAYER_CLIENT_ID!,
           client_secret: process.env.TRUELAYER_CLIENT_SECRET!,
-          refresh_token: refresh_token,
+          refresh_token: refresh_token || '',
         }),
       }
     );
@@ -211,14 +220,8 @@ export async function refreshTokens(userId: string): Promise<EncryptedTokens> {
 
     return {
       ...encryptedTokens,
-      access_token: encrypt(
-        newTokens.access_token,
-        process.env.ENCRYPTION_KEY!
-      ),
-      refresh_token: encrypt(
-        newTokens.refresh_token,
-        process.env.ENCRYPTION_KEY!
-      ),
+      access_token: await encrypt(newTokens.access_token),
+      refresh_token: await encrypt(newTokens.refresh_token),
       expires_at: Date.now() + newTokens.expires_in * 1000,
       updated_at: Date.now(),
     };

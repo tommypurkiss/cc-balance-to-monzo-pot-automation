@@ -1,9 +1,51 @@
 import * as admin from 'firebase-admin';
-import { encrypt, decrypt } from './encryption';
+
+// HTTP encryption service URL
+const ENCRYPTION_SERVICE_URL =
+  'https://europe-west2-cc-to-monzo-pot-automation.cloudfunctions.net/encryptionService';
+
+// Helper functions to call the HTTP encryption service
+async function encrypt(text: string): Promise<string> {
+  try {
+    const response = await fetch(ENCRYPTION_SERVICE_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ operation: 'encrypt', data: text }),
+    });
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to encrypt data');
+    }
+    const { result } = await response.json();
+    return result;
+  } catch (error) {
+    console.error('Error calling encryption service (encrypt):', error);
+    throw error;
+  }
+}
+
+async function decrypt(encryptedData: string): Promise<string> {
+  try {
+    const response = await fetch(ENCRYPTION_SERVICE_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ operation: 'decrypt', data: encryptedData }),
+    });
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to decrypt data');
+    }
+    const { result } = await response.json();
+    return result;
+  } catch (error) {
+    console.error('Error calling encryption service (decrypt):', error);
+    throw error;
+  }
+}
 
 interface EncryptedTokens {
   access_token: string;
-  refresh_token: string;
+  refresh_token?: string; // Optional for Monzo pre-verification apps
   expires_at: number;
   scope: string;
   provider: string;
@@ -52,19 +94,41 @@ export async function getEncryptedTokens(
 /**
  * Decrypt tokens
  */
-export async function decryptTokens(
-  encryptedTokens: EncryptedTokens,
-  encryptionKey: string
-): Promise<{
+export async function decryptTokens(encryptedTokens: EncryptedTokens): Promise<{
   access_token: string;
-  refresh_token: string;
+  refresh_token?: string;
   expires_at: number;
   scope: string;
 }> {
   try {
+    // Add detailed logging here
+    console.log(
+      `🔍 DEBUG: Decrypting tokens for provider: ${encryptedTokens.provider}`
+    );
+    console.log(
+      `🔍 DEBUG: Encrypted Access Token (first 30 chars): ${encryptedTokens.access_token.substring(0, 30)}...`
+    );
+    console.log(
+      `🔍 DEBUG: Encrypted Access Token length: ${encryptedTokens.access_token.length}`
+    );
+    if (encryptedTokens.refresh_token) {
+      console.log(
+        `🔍 DEBUG: Encrypted Refresh Token (first 30 chars): ${encryptedTokens.refresh_token.substring(0, 30)}...`
+      );
+      console.log(
+        `🔍 DEBUG: Encrypted Refresh Token length: ${encryptedTokens.refresh_token.length}`
+      );
+    } else {
+      console.log(
+        `🔍 DEBUG: No refresh token available for ${encryptedTokens.provider}`
+      );
+    }
+
     return {
-      access_token: decrypt(encryptedTokens.access_token, encryptionKey),
-      refresh_token: decrypt(encryptedTokens.refresh_token, encryptionKey),
+      access_token: await decrypt(encryptedTokens.access_token),
+      refresh_token: encryptedTokens.refresh_token
+        ? await decrypt(encryptedTokens.refresh_token)
+        : undefined,
       expires_at: encryptedTokens.expires_at,
       scope: encryptedTokens.scope,
     };
@@ -75,12 +139,11 @@ export async function decryptTokens(
 }
 
 /**
- * Refresh TrueLayer tokens
+ * Refresh tokens (supports both TrueLayer and Monzo)
  */
 export async function refreshTokens(
   userId: string,
   provider: string,
-  encryptionKey: string,
   clientId: string,
   clientSecret: string
 ): Promise<void> {
@@ -90,13 +153,29 @@ export async function refreshTokens(
       throw new Error('No tokens found for user');
     }
 
-    const { refresh_token } = await decryptTokens(
-      encryptedTokens,
-      encryptionKey
-    );
+    const { refresh_token } = await decryptTokens(encryptedTokens);
+
+    // Check if refresh_token exists
+    if (!refresh_token) {
+      console.warn(
+        `⚠️ No refresh_token available for ${provider}. Token cannot be refreshed.`
+      );
+      console.warn(
+        '💡 For Monzo pre-verification apps: User needs to re-authorize.'
+      );
+      throw new Error('No refresh_token available');
+    }
+
+    // Determine token endpoint based on provider
+    const tokenEndpoint =
+      provider === 'monzo'
+        ? 'https://api.monzo.com/oauth2/token'
+        : 'https://auth.truelayer.com/connect/token';
+
+    console.log(`🔄 Refreshing ${provider} tokens...`);
 
     // Exchange refresh token for new access token
-    const response = await fetch('https://auth.truelayer.com/connect/token', {
+    const response = await fetch(tokenEndpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
@@ -110,7 +189,11 @@ export async function refreshTokens(
     });
 
     if (!response.ok) {
-      throw new Error('Failed to refresh tokens');
+      const errorText = await response.text();
+      console.error(`Failed to refresh ${provider} tokens:`, errorText);
+      throw new Error(
+        `Failed to refresh ${provider} tokens: ${response.status}`
+      );
     }
 
     const newTokens: TrueLayerTokenResponse = await response.json();
@@ -126,14 +209,15 @@ export async function refreshTokens(
 
     if (!snapshot.empty) {
       await snapshot.docs[0].ref.update({
-        access_token: encrypt(newTokens.access_token, encryptionKey),
-        refresh_token: encrypt(newTokens.refresh_token, encryptionKey),
+        access_token: await encrypt(newTokens.access_token),
+        refresh_token: await encrypt(newTokens.refresh_token),
         expires_at: Date.now() + newTokens.expires_in * 1000,
         updated_at: Date.now(),
       });
+      console.log(`✅ ${provider} tokens refreshed successfully`);
     }
   } catch (error) {
-    console.error('Error refreshing tokens:', error);
+    console.error(`Error refreshing ${provider} tokens:`, error);
     throw error;
   }
 }

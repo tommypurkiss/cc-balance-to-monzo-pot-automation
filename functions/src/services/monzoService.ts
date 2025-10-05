@@ -194,15 +194,54 @@ export class MonzoService {
   }
 
   /**
-   * Get Monzo access token from Firestore
-   * (Assumes Monzo tokens are stored similar to TrueLayer tokens)
+   * Get Monzo OAuth access token from Firestore
+   * This is SEPARATE from TrueLayer - used for write access (pot transfers)
    */
-  async getMonzoAccessToken(userId: string): Promise<string | null> {
-    // TODO: Implement Monzo token retrieval from Firestore
-    // Similar to TrueLayer tokens but for Monzo OAuth
-    console.warn(
-      '⚠️ Monzo OAuth not yet implemented - using TrueLayer only for now'
-    );
-    return null;
+  async getMonzoAccessToken(
+    userId: string,
+    clientId: string,
+    clientSecret: string
+  ): Promise<string | null> {
+    try {
+      const { getEncryptedTokens, decryptTokens, refreshTokens } = await import(
+        '../utils/firestore'
+      );
+
+      // Get Monzo OAuth tokens (separate from TrueLayer)
+      const encryptedTokens = await getEncryptedTokens(userId, 'monzo');
+
+      if (!encryptedTokens) {
+        console.log(
+          '⚠️ No Monzo OAuth tokens found for user. User needs to enable automation.'
+        );
+        return null;
+      }
+
+      const tokens = await decryptTokens(encryptedTokens);
+
+      // Check if token is expired
+      if (Date.now() >= tokens.expires_at) {
+        console.log('🔄 Monzo token expired, refreshing...');
+        await refreshTokens(userId, 'monzo', clientId, clientSecret);
+
+        // Get refreshed tokens
+        const refreshedEncryptedTokens = await getEncryptedTokens(
+          userId,
+          'monzo'
+        );
+        if (!refreshedEncryptedTokens) {
+          console.error('❌ Failed to get refreshed Monzo tokens');
+          return null;
+        }
+
+        const refreshedTokens = await decryptTokens(refreshedEncryptedTokens);
+        return refreshedTokens.access_token;
+      }
+
+      return tokens.access_token;
+    } catch (error) {
+      console.error('Error getting Monzo access token:', error);
+      return null;
+    }
   }
 }

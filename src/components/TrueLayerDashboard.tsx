@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBankingData } from '@/contexts/BankingDataContext';
 import {
@@ -45,6 +45,58 @@ export default function TrueLayerDashboard() {
   const [savingsExpanded, setSavingsExpanded] = useState<{
     [provider: string]: boolean;
   }>({});
+  const [monzoAutomationEnabled, setMonzoAutomationEnabled] = useState<{
+    [provider: string]: boolean;
+  }>({});
+
+  const [hasMonzoAutomation, setHasMonzoAutomation] = useState(false);
+  const [checkingAutomation, setCheckingAutomation] = useState(false);
+
+  // Check if Monzo automation is enabled on component mount
+  useEffect(() => {
+    const checkMonzoAutomation = async () => {
+      if (!currentUser?.uid) return;
+
+      const providers = Object.keys(data);
+      const monzoProviders = providers.filter(
+        (p) => p === 'ob-monzo' || p === 'monzo'
+      );
+
+      if (monzoProviders.length === 0) return;
+
+      setCheckingAutomation(true);
+      try {
+        const response = await fetch(
+          `/api/truelayer/get-user-tokens?userId=${currentUser.uid}`
+        );
+        if (response.ok) {
+          const tokens = await response.json();
+          // Check for TrueLayer Monzo token (for reading account/pot data)
+          const hasTrueLayerMonzo = tokens.some(
+            (t: any) => t.provider === 'ob-monzo' && !t.deleted
+          );
+
+          // Check for direct Monzo API token (for automation/write access)
+          const hasMonzoAutomation = tokens.some(
+            (t: any) => t.provider === 'monzo' && !t.deleted
+          );
+
+          const newState: { [provider: string]: boolean } = {};
+          monzoProviders.forEach((provider) => {
+            newState[provider] = hasTrueLayerMonzo;
+          });
+          setMonzoAutomationEnabled(newState);
+          setHasMonzoAutomation(hasMonzoAutomation);
+        }
+      } catch (error) {
+        console.error('Error checking Monzo automation status:', error);
+      } finally {
+        setCheckingAutomation(false);
+      }
+    };
+
+    checkMonzoAutomation();
+  }, [currentUser, data]);
 
   const handleLogout = async (provider: string) => {
     await clientStorage.removeSession(provider);
@@ -61,6 +113,14 @@ export default function TrueLayerDashboard() {
       ...prev,
       [provider]: !prev[provider],
     }));
+  };
+
+  const handleEnableMonzoAutomation = (provider: string) => {
+    // Check if this is a Monzo provider
+    if (provider === 'ob-monzo' || provider === 'monzo') {
+      const userId = currentUser?.uid || 'anonymous';
+      window.location.href = `/api/auth/monzo?userId=${userId}`;
+    }
   };
 
   if (loading) {
@@ -92,9 +152,15 @@ export default function TrueLayerDashboard() {
             </button>
             {isAuthError && (
               <button
-                onClick={() =>
-                  (window.location.href = '/api/auth/truelayer/login')
-                }
+                onClick={() => {
+                  const userId = currentUser?.uid;
+                  if (userId) {
+                    window.location.href = `/api/auth/truelayer?userId=${userId}`;
+                  } else {
+                    console.error('No user ID available for reconnection');
+                    window.location.href = '/api/auth/truelayer';
+                  }
+                }}
                 className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 font-medium"
               >
                 Reconnect Banks
@@ -247,6 +313,51 @@ export default function TrueLayerDashboard() {
                         </button>
                       </div>
                     </div>
+
+                    {/* Monzo Automation Status */}
+                    {(provider === 'ob-monzo' || provider === 'monzo') && (
+                      <div
+                        className={`mb-4 p-3 border rounded ${
+                          monzoAutomationEnabled[provider]
+                            ? 'bg-green-900/30 border-green-600'
+                            : 'bg-blue-900/30 border-blue-600'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h4
+                              className={`text-sm font-semibold mb-1 ${
+                                hasMonzoAutomation
+                                  ? 'text-green-300'
+                                  : 'text-blue-300'
+                              }`}
+                            >
+                              {hasMonzoAutomation
+                                ? '✅ Automated Pot Transfers Enabled'
+                                : '🤖 Automated Pot Transfers'}
+                            </h4>
+                            <p className="text-xs text-gray-300">
+                              {hasMonzoAutomation
+                                ? 'Funds will be automatically transferred to your Credit Card pot every night at 2 AM'
+                                : 'Enable write access to automatically transfer funds to your Credit Card pot'}
+                            </p>
+                          </div>
+                          {!hasMonzoAutomation && (
+                            <button
+                              onClick={() =>
+                                handleEnableMonzoAutomation(provider)
+                              }
+                              disabled={checkingAutomation}
+                              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 font-medium text-sm whitespace-nowrap ml-4 disabled:opacity-50"
+                            >
+                              {checkingAutomation
+                                ? 'Checking...'
+                                : 'Enable Automation'}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
 
                     {/* Transaction Accounts */}
                     {providerTransactionAccounts.length > 0 && (

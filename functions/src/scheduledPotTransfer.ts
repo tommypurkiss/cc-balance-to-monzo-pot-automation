@@ -2,15 +2,18 @@ import { onSchedule } from 'firebase-functions/v2/scheduler';
 import * as admin from 'firebase-admin';
 import { TrueLayerService } from './services/truelayerService';
 import { MonzoService } from './services/monzoService';
-import { defineString } from 'firebase-functions/params';
+import { defineSecret } from 'firebase-functions/params';
+// We'll use the HTTP encryption service for consistency with frontend
 
 // Initialize Firebase Admin
 admin.initializeApp();
 
-// Environment variables
-const encryptionKey = defineString('ENCRYPTION_KEY');
-const truelayerClientId = defineString('TRUELAYER_CLIENT_ID');
-const truelayerClientSecret = defineString('TRUELAYER_CLIENT_SECRET');
+// Environment variables as secrets
+const encryptionKey = defineSecret('ENCRYPTION_KEY');
+const truelayerClientId = defineSecret('TRUELAYER_CLIENT_ID');
+const truelayerClientSecret = defineSecret('TRUELAYER_CLIENT_SECRET');
+const monzoClientId = defineSecret('MONZO_CLIENT_ID');
+const monzoClientSecret = defineSecret('MONZO_CLIENT_SECRET');
 
 /**
  * Scheduled function that runs every night at 2:00 AM (UK time)
@@ -32,22 +35,37 @@ export const scheduledPotTransfer = onSchedule(
     schedule: '0 2 * * *', // Every day at 2:00 AM
     timeZone: 'Europe/London', // UK timezone
     region: 'europe-west2', // London region
+    secrets: [
+      encryptionKey,
+      truelayerClientId,
+      truelayerClientSecret,
+      monzoClientId,
+      monzoClientSecret,
+    ],
   },
   async (event) => {
     const timestamp = new Date().toISOString();
 
     console.log('🚀 Scheduled pot transfer started at:', timestamp);
+
+    // Initialize services
+    const truelayerService = new TrueLayerService(
+      truelayerClientId.value(),
+      truelayerClientSecret.value()
+    );
+
+    const monzoService = new MonzoService(truelayerService);
     console.log('📅 Scheduled time:', event.scheduleTime);
     console.log('📝 Job name:', event.jobName);
 
     try {
       // Initialize services
-      const truelayerService = new TrueLayerService(
-        encryptionKey.value(),
-        truelayerClientId.value(),
-        truelayerClientSecret.value()
-      );
-      const monzoService = new MonzoService(truelayerService);
+      // const truelayerService = new TrueLayerService(
+      //   encryptionKey.value(),
+      //   truelayerClientId.value(),
+      //   truelayerClientSecret.value()
+      // );
+      // const monzoService = new MonzoService(truelayerService);
 
       // Get all users who have TrueLayer tokens (for now, we'll process all users)
       const db = admin.firestore();
@@ -73,33 +91,123 @@ export const scheduledPotTransfer = onSchedule(
       // Process each user
       for (const userId of userIds) {
         console.log(`\n👤 Processing user: ${userId}`);
+        console.log(`🔍 DEBUG: About to check encryption key...`);
+        console.log(
+          `🔍 ENCRYPTION KEY CHECK: First 10 chars: ${encryptionKey.value().substring(0, 10)}...`
+        );
+        console.log(
+          `🔍 DEBUG: Encryption key check completed, about to run encryption test...`
+        );
 
+        // Debug: Check what tokens this user has
+        const userTokenDocs = tokensSnapshot.docs.filter(
+          (doc) => doc.data().user_id === userId
+        );
+        const userTokens = userTokenDocs.map((doc) => ({
+          provider: doc.data().provider,
+          deleted: doc.data().deleted,
+          hasAccessToken: !!doc.data().access_token,
+          accessTokenLength: doc.data().access_token?.length || 0,
+        }));
+        console.log(`🔍 User tokens:`, userTokens);
+
+        // Debug: Check if tokens look valid
+        for (const doc of userTokenDocs) {
+          const data = doc.data();
+          console.log(`🔍 Token for ${data.provider}:`, {
+            hasAccessToken: !!data.access_token,
+            hasRefreshToken: !!data.refresh_token,
+            expiresAt: data.expires_at,
+            created: new Date(data.created_at).toISOString(),
+          });
+
+          // Debug: Show first few characters of each encrypted token
+          if (data.access_token) {
+            console.log(
+              `🔍 ${data.provider} encrypted access_token (first 50 chars): ${data.access_token.substring(0, 50)}...`
+            );
+          }
+        }
+
+        // Process each user's tokens
         try {
-          // Get credit cards
-          const cards = await truelayerService.getCards(userId);
-          console.log(`💳 Found ${cards.length} credit card(s)`);
+          // Separate credit card providers from bank providers
+          const creditCardProviders = userTokens
+            .filter(
+              (token) =>
+                !token.deleted &&
+                token.provider !== 'monzo' &&
+                token.provider !== 'ob-monzo'
+            )
+            .map((token) => token.provider);
+
+          // Find both Monzo tokens
+          const obMonzoToken = userTokens.find(
+            (token) => !token.deleted && token.provider === 'ob-monzo'
+          );
+          const monzoToken = userTokens.find(
+            (token) => !token.deleted && token.provider === 'monzo'
+          );
+
+          console.log(`💳 Credit card providers:`, creditCardProviders);
+          console.log(`🏦 ob-monzo token:`, obMonzoToken ? 'Found' : 'Missing');
+          console.log(`🏦 monzo token:`, monzoToken ? 'Found' : 'Missing');
+
+          // Skip if no credit card providers found
+          if (creditCardProviders.length === 0) {
+            console.log('  ⚠️ No credit card providers found, skipping user');
+            continue;
+          }
+
+          // Skip if no ob-monzo token found (needed for reading account data)
+          if (!obMonzoToken) {
+            console.log('  ⚠️ No ob-monzo token found, skipping user');
+            continue;
+          }
+
+          // Skip if no monzo token found (needed for writing transfers)
+          if (!monzoToken) {
+            console.log('  ⚠️ No monzo token found, skipping user');
+            continue;
+          }
 
           let totalCreditCardBalance = 0;
+          let totalCardsFound = 0;
 
-          // Get balance for each card
-          for (const card of cards) {
-            const balance = await truelayerService.getCardBalance(
-              userId,
-              card.account_id
-            );
-            if (balance) {
+          // Get cards from each credit card provider
+          for (const provider of creditCardProviders) {
+            try {
+              const cards = await truelayerService.getCards(userId, provider);
+              console.log(`  📱 ${provider}: Found ${cards.length} card(s)`);
+              totalCardsFound += cards.length;
+
+              // Get balance for each card
+              for (const card of cards) {
+                const balance = await truelayerService.getCardBalance(
+                  userId,
+                  card.account_id,
+                  provider
+                );
+                if (balance) {
+                  console.log(
+                    `    - ${card.display_name}: ${balance.currency} ${balance.current}`
+                  );
+                  totalCreditCardBalance += balance.current;
+                }
+              }
+            } catch (providerError: any) {
               console.log(
-                `  - ${card.display_name}: ${balance.currency} ${balance.current}`
+                `  ⚠️ Error getting cards from ${provider}:`,
+                providerError.message
               );
-              totalCreditCardBalance += balance.current;
             }
           }
 
           console.log(
-            `💰 Total credit card balance: £${totalCreditCardBalance.toFixed(2)}`
+            `💰 Total credit card balance: £${totalCreditCardBalance.toFixed(2)} (from ${totalCardsFound} cards)`
           );
 
-          // Get Monzo accounts (main account and credit card pot)
+          // Get Monzo accounts (main account and credit card pot) using ob-monzo token
           const monzoAccounts = await monzoService.getMonzoAccounts(
             userId,
             'ob-monzo'
@@ -130,6 +238,7 @@ export const scheduledPotTransfer = onSchedule(
 
           const mainAccountBalance =
             monzoAccounts.mainAccount.balance?.available || 0;
+          const totalMonzoBalance = mainAccountBalance + currentPotBalance;
 
           console.log(`\n💡 Transfer summary:`);
           console.log(
@@ -141,7 +250,21 @@ export const scheduledPotTransfer = onSchedule(
           console.log(
             `  Main account balance: £${mainAccountBalance.toFixed(2)}`
           );
+          console.log(
+            `  Total Monzo balance: £${totalMonzoBalance.toFixed(2)}`
+          );
           console.log(`  Transfer needed: £${transferAmount.toFixed(2)}`);
+
+          // Safety check: Only transfer if total Monzo balance > total credit card debt
+          if (totalMonzoBalance <= totalCreditCardBalance) {
+            console.log(
+              `  ⚠️ SAFETY CHECK FAILED: Total Monzo balance (£${totalMonzoBalance.toFixed(2)}) is not greater than credit card debt (£${totalCreditCardBalance.toFixed(2)})`
+            );
+            console.log(
+              `  💡 Skipping transfer to avoid overdrawing. You need at least £${(totalCreditCardBalance + 1).toFixed(2)} total in Monzo.`
+            );
+            continue;
+          }
 
           // Check if user has enough money in main account for deposit
           if (transferAmount > 0 && transferAmount > mainAccountBalance) {
@@ -151,24 +274,31 @@ export const scheduledPotTransfer = onSchedule(
             continue;
           }
 
-          // TODO: Get Monzo OAuth token and execute transfer
-          // For now, just log what would happen
-          console.log(
-            `  ✅ Would transfer £${transferAmount.toFixed(2)} ${transferAmount > 0 ? 'to' : 'from'} pot`
+          // Get Monzo OAuth access token and execute transfer
+          const monzoAccessToken = await monzoService.getMonzoAccessToken(
+            userId,
+            monzoClientId.value(),
+            monzoClientSecret.value()
           );
 
-          /*
-          // Uncomment when Monzo OAuth is implemented:
-          const monzoToken = await monzoService.getMonzoAccessToken(userId);
-          if (monzoToken) {
-            await monzoService.transferToPot(
-              monzoToken,
-              monzoAccounts.mainAccount.account_id,
-              monzoAccounts.creditCardPot.account_id,
-              transferAmount
+          if (!monzoAccessToken) {
+            console.log(
+              `  ⚠️ No Monzo OAuth access token found. User needs to click "Enable Automation" in dashboard.`
             );
+            console.log(
+              `  💡 Would have transferred £${transferAmount.toFixed(2)} ${transferAmount > 0 ? 'to' : 'from'} pot`
+            );
+            continue;
           }
-          */
+
+          // Execute the transfer!
+          console.log(`  🚀 Executing transfer...`);
+          await monzoService.transferToPot(
+            monzoAccessToken,
+            monzoAccounts.mainAccount.account_id,
+            monzoAccounts.creditCardPot.account_id,
+            transferAmount
+          );
         } catch (userError) {
           console.error(`❌ Error processing user ${userId}:`, userError);
           // Continue with next user
