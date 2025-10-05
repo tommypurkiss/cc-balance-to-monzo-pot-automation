@@ -61,7 +61,7 @@ export interface TrueLayerTransactionsResponse {
 
 export interface EncryptedTokens {
   access_token: string;
-  refresh_token: string;
+  refresh_token?: string; // Optional for Monzo pre-verification apps
   expires_at: number;
   scope: string;
   provider: string;
