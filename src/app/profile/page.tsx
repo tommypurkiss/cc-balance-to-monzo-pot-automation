@@ -1,10 +1,10 @@
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
-import Dashboard from '@/components/Dashboard';
+import UserProfile from '@/components/UserProfile';
 
-export default function Home() {
+export default function ProfilePage() {
   return (
     <ProtectedRoute>
-      <Dashboard />
+      <UserProfile />
     </ProtectedRoute>
   );
 }
