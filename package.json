@@ -12,7 +12,12 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "prepare": "husky"
+    "prepare": "husky",
+    "functions:build": "cd functions && npm run build",
+    "functions:watch": "cd functions && npm run watch",
+    "functions:serve": "cd functions && npm run serve",
+    "functions:deploy": "firebase deploy --only functions",
+    "functions:logs": "firebase functions:log"
   },
   "dependencies": {
     "axios": "^1.12.2",
@@ -20,6 +25,7 @@
     "eslint-plugin-prettier": "^5.5.4",
     "firebase": "^12.3.0",
     "firebase-admin": "^13.5.0",
+    "firebase-functions": "^6.4.0",
     "next": "15.5.4",
     "prettier": "^3.6.2",
     "react": "19.1.0",
