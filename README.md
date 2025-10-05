@@ -86,12 +86,18 @@ Create a `.env.local` file with the following variables:
 # TrueLayer API
 TRUELAYER_CLIENT_ID=your_truelayer_client_id
 TRUELAYER_CLIENT_SECRET=your_truelayer_client_secret
+# For development (optional - will auto-detect if not set):
 TRUELAYER_REDIRECT_URI=http://localhost:3000/api/auth/truelayer/callback
+# For production (optional - will auto-detect if not set):
+# TRUELAYER_REDIRECT_URI=https://cc-balance-to-monzo.netlify.app/api/auth/truelayer/callback
 
 # Monzo API
 MONZO_CLIENT_ID=your_monzo_client_id
 MONZO_CLIENT_SECRET=your_monzo_client_secret
+# For development (optional - will auto-detect if not set):
 MONZO_REDIRECT_URI=http://localhost:3000/api/auth/monzo/callback
+# For production (optional - will auto-detect if not set):
+# MONZO_REDIRECT_URI=https://cc-balance-to-monzo.netlify.app/api/auth/monzo/callback
 
 # Firebase (Client-side - for authentication)
 NEXT_PUBLIC_FIREBASE_API_KEY=your_firebase_api_key

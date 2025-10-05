@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
 import { storeEncryptedTokens } from '@/lib/firestore';
+import { getTrueLayerRedirectUri } from '@/lib/urls';
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -67,9 +68,7 @@ export async function GET(request: NextRequest) {
   try {
     const clientId = process.env.TRUELAYER_CLIENT_ID;
     const clientSecret = process.env.TRUELAYER_CLIENT_SECRET;
-    const redirectUri =
-      process.env.TRUELAYER_REDIRECT_URI ||
-      'http://localhost:3000/api/auth/truelayer/callback';
+    const redirectUri = getTrueLayerRedirectUri();
 
     if (!clientId || !clientSecret || !redirectUri) {
       throw new Error(

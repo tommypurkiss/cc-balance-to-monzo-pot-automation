@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getMonzoRedirectUri } from '@/lib/urls';
 import crypto from 'crypto';
 
 function generateRandomState(length: number = 32): string {
@@ -23,7 +24,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   }
 
   const clientId = process.env.MONZO_CLIENT_ID;
-  const redirectUri = process.env.MONZO_REDIRECT_URI;
+  const redirectUri = getMonzoRedirectUri();
 
   console.log('MONZO API TESTING: Client ID exists:', !!clientId);
   console.log('MONZO API TESTING: Redirect URI from env:', redirectUri);

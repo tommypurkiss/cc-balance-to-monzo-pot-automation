@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
 import { encrypt } from '@/lib/encryptionService';
 import { getAdminDb } from '@/lib/firebase-admin';
+import { getMonzoRedirectUri } from '@/lib/urls';
 
 interface MonzoTokenResponse {
   access_token: string;
@@ -57,9 +58,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const clientId = process.env.MONZO_CLIENT_ID;
   const clientSecret = process.env.MONZO_CLIENT_SECRET;
 
-  // Redirect URI is our confirmation page
-  const confirmPageUrl = new URL('/auth/monzo-confirm', request.url);
-  const redirectUri = confirmPageUrl.toString();
+  // Redirect URI for OAuth token exchange should be the callback URL
+  const redirectUri = getMonzoRedirectUri();
 
   if (!clientId || !clientSecret || !redirectUri) {
     return NextResponse.json(
