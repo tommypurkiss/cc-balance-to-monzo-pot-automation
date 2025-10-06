@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
 
   if (error) {
     console.error('❌ TrueLayer authorization error:', error, errorDescription);
-    const redirectUrl = new URL('/', request.url);
+    const redirectUrl = new URL('/oauth-callback', request.url);
     redirectUrl.searchParams.set('truelayer_error', 'true');
     redirectUrl.searchParams.set('error_message', errorDescription || error);
     redirectUrl.searchParams.set('provider', provider);
@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
 
   if (!code) {
     console.error('❌ No authorization code received from TrueLayer.');
-    const redirectUrl = new URL('/', request.url);
+    const redirectUrl = new URL('/oauth-callback', request.url);
     redirectUrl.searchParams.set('truelayer_error', 'true');
     redirectUrl.searchParams.set(
       'error_message',
@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
 
   if (!state || !storedState || randomStatePart !== storedRandomStatePart) {
     console.error('❌ State mismatch during TrueLayer OAuth callback.');
-    const redirectUrl = new URL('/', request.url);
+    const redirectUrl = new URL('/oauth-callback', request.url);
     redirectUrl.searchParams.set('truelayer_error', 'true');
     redirectUrl.searchParams.set(
       'error_message',
@@ -179,7 +179,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Redirect with success
-    const redirectUrl = new URL('/', request.url);
+    const redirectUrl = new URL('/oauth-callback', request.url);
     redirectUrl.searchParams.set('truelayer_success', 'true');
     redirectUrl.searchParams.set('provider', actualProvider);
     redirectUrl.searchParams.set('access_token', access_token);
@@ -198,7 +198,7 @@ export async function GET(request: NextRequest) {
       '❌ Token exchange or callback processing error:',
       errorDetails || errorMessage
     );
-    const redirectUrl = new URL('/', request.url);
+    const redirectUrl = new URL('/oauth-callback', request.url);
     redirectUrl.searchParams.set('truelayer_error', 'true');
     redirectUrl.searchParams.set(
       'error_message',
