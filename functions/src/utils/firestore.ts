@@ -2,7 +2,7 @@ import * as admin from 'firebase-admin';
 
 // HTTP encryption service URL
 const ENCRYPTION_SERVICE_URL =
-  'https://europe-west2-cc-to-monzo-pot-automation.cloudfunctions.net/encryptionService';
+  'https://encryptionservice-ae4sy7xjpq-nw.a.run.app';
 
 // Helper functions to call the HTTP encryption service
 async function encrypt(text: string): Promise<string> {

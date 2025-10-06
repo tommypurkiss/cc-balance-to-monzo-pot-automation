@@ -4,7 +4,7 @@
  */
 
 const ENCRYPTION_SERVICE_URL =
-  'https://europe-west2-cc-to-monzo-pot-automation.cloudfunctions.net/encryptionService';
+  'https://encryptionservice-ae4sy7xjpq-nw.a.run.app';
 
 export async function encrypt(text: string): Promise<string> {
   try {
