@@ -1,0 +1,61 @@
+name: Build and Deploy Firebase Functions
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  build-functions:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20' # Match functions package.json engines
+          cache: 'npm'
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Build functions
+        run: |
+          npm run functions:build
+          echo "✅ Functions built successfully"
+          ls -la functions/lib/
+
+      - name: Verify functions build
+        run: |
+          if [ ! -f "functions/lib/index.js" ]; then
+            echo "❌ Functions build failed - functions/lib/index.js not found"
+            exit 1
+          fi
+          echo "✅ Functions build verified"
+
+      - name: Setup Firebase CLI
+        if: github.ref == 'refs/heads/main'
+        run: |
+          npm install -g firebase-tools
+          firebase --version
+
+      - name: Deploy to Firebase Functions
+        if: github.ref == 'refs/heads/main'
+        run: |
+          firebase deploy --only functions --project ${{ secrets.FIREBASE_PROJECT_ID }}
+        env:
+          FIREBASE_CLIENT_EMAIL: ${{ secrets.FIREBASE_CLIENT_EMAIL }}
+          FIREBASE_PRIVATE_KEY: ${{ secrets.FIREBASE_PRIVATE_KEY }}
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+
+      - name: Build Summary
+        if: github.ref != 'refs/heads/main'
+        run: |
+          echo "✅ Functions build completed successfully!"
+          echo "📦 Build artifacts are ready in functions/lib/"
+          echo "🚀 Deployment will happen automatically when merged to main"
