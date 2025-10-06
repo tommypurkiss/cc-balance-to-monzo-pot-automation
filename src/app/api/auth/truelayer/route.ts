@@ -59,7 +59,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const response = NextResponse.redirect(url.toString());
   response.cookies.set('truelayer_oauth_state', state, {
     httpOnly: true,
-    sameSite: 'lax',
+    sameSite: 'none',
+    secure: true,
     path: '/',
     maxAge: 60 * 30, // 30 minutes
   });
@@ -68,7 +69,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   if (provider) {
     response.cookies.set('truelayer_provider', provider, {
       httpOnly: true,
-      sameSite: 'lax',
+      sameSite: 'none',
+      secure: true,
       path: '/',
       maxAge: 60 * 30, // 30 minutes
     });
