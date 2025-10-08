@@ -29,6 +29,17 @@ jobs:
           npm run functions:build
           echo "✅ Functions built successfully"
           ls -la functions/lib/
+        env:
+          # Private Firebase environment variables (for server-side only)
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          FIREBASE_CLIENT_EMAIL: ${{ secrets.FIREBASE_CLIENT_EMAIL }}
+          FIREBASE_PRIVATE_KEY: ${{ secrets.FIREBASE_PRIVATE_KEY }}
+          # Other required environment variables
+          ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
+          TRUELAYER_CLIENT_ID: ${{ secrets.TRUELAYER_CLIENT_ID }}
+          TRUELAYER_CLIENT_SECRET: ${{ secrets.TRUELAYER_CLIENT_SECRET }}
+          MONZO_CLIENT_ID: ${{ secrets.MONZO_CLIENT_ID }}
+          MONZO_CLIENT_SECRET: ${{ secrets.MONZO_CLIENT_SECRET }}
 
       - name: Verify functions build
         run: |
