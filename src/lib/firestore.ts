@@ -1,3 +1,4 @@
+// Server-side only imports
 import { getAdminDb } from './firebase-admin';
 import { TrueLayerTokenResponse, EncryptedTokens } from '@/types/truelayer';
 import { encrypt, decrypt } from './encryptionService';

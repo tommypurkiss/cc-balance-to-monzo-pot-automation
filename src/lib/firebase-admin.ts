@@ -1,26 +1,34 @@
 import { initializeApp, getApps, cert, App } from 'firebase-admin/app';
 import { getFirestore, Firestore } from 'firebase-admin/firestore';
 
+/**
+ * Firebase Admin SDK configuration
+ * This module is server-side only and should never be imported in client-side code
+ */
+
 let adminApp: App | null = null;
 let adminDb: Firestore | null = null;
 
-// Initialize Firebase Admin only when needed
+/**
+ * Initialize Firebase Admin SDK with environment variables
+ * @returns Firebase Admin app and Firestore database instances
+ * @throws Error if required environment variables are missing
+ */
 function initializeFirebaseAdmin(): { app: App; db: Firestore } {
   if (adminApp && adminDb) {
     return { app: adminApp, db: adminDb };
   }
 
   // Check if we have the required environment variables
+  const projectId = process.env.FIREBASE_PROJECT_ID;
+
   if (
-    !process.env.FIREBASE_PROJECT_ID ||
+    !projectId ||
     !process.env.FIREBASE_CLIENT_EMAIL ||
     !process.env.FIREBASE_PRIVATE_KEY
   ) {
-    console.warn(
-      '⚠️ Firebase Admin environment variables not set. Firebase Admin features will not work.'
-    );
     throw new Error(
-      'Firebase Admin not configured - missing environment variables'
+      'Firebase Admin not configured - missing required environment variables: FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY'
     );
   }
 
@@ -28,7 +36,7 @@ function initializeFirebaseAdmin(): { app: App; db: Firestore } {
   if (!getApps().length) {
     adminApp = initializeApp({
       credential: cert({
-        projectId: process.env.FIREBASE_PROJECT_ID,
+        projectId,
         clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
         privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
       }),
@@ -41,11 +49,18 @@ function initializeFirebaseAdmin(): { app: App; db: Firestore } {
   return { app: adminApp, db: adminDb };
 }
 
-// Export a function that initializes Firebase Admin when called
+/**
+ * Get Firestore database instance
+ * Initializes Firebase Admin SDK if not already initialized
+ * @returns Firestore database instance
+ */
 export function getAdminDb(): Firestore {
   const { db } = initializeFirebaseAdmin();
   return db;
 }
 
-// For backward compatibility, export adminDb as a getter
+/**
+ * @deprecated Use getAdminDb() instead
+ * For backward compatibility only
+ */
 export { getAdminDb as adminDb };
