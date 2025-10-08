@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
 import { encrypt } from '@/lib/encryptionService';
-import { getAdminDb } from '@/lib/firebase-admin';
 import { getMonzoRedirectUri } from '@/lib/urls';
 
 interface MonzoTokenResponse {
@@ -163,6 +162,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
     console.log('MONZO API TESTING: Storing tokens in Firestore...');
 
+    const { getAdminDb } = await import('@/lib/firebase-admin');
     const adminDb = getAdminDb();
     const existingSnapshot = await adminDb
       .collection('user_tokens')
