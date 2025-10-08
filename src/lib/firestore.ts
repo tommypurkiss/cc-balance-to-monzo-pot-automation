@@ -1,7 +1,18 @@
-// Server-side only imports
-import { getAdminDb } from './firebase-admin';
+// Server-side only imports - use dynamic import to prevent client bundling
 import { TrueLayerTokenResponse, EncryptedTokens } from '@/types/truelayer';
 import { encrypt, decrypt } from './encryptionService';
+
+// Dynamic import to prevent client bundling
+let getAdminDb: () => any;
+
+// Initialize the dynamic import once
+async function initFirebaseAdmin() {
+  if (!getAdminDb) {
+    const firebaseModule = await import('./firebase-admin');
+    getAdminDb = firebaseModule.getAdminDb;
+  }
+  return getAdminDb;
+}
 
 export async function storeEncryptedTokens(
   tokens: TrueLayerTokenResponse,
@@ -39,7 +50,8 @@ export async function storeEncryptedTokens(
     );
 
     // Check if tokens already exist for this user/provider combination
-    const adminDb = getAdminDb();
+    const getAdminDbFunc = await initFirebaseAdmin();
+    const adminDb = getAdminDbFunc();
     const existingSnapshot = await adminDb
       .collection('user_tokens')
       .where('user_id', '==', userId)
@@ -87,7 +99,8 @@ export async function getEncryptedTokens(
   provider: string = 'truelayer'
 ): Promise<EncryptedTokens | null> {
   try {
-    const adminDb = getAdminDb();
+    const getAdminDbFunc = await initFirebaseAdmin();
+    const adminDb = getAdminDbFunc();
     const snapshot = await adminDb
       .collection('user_tokens')
       .where('user_id', '==', userId)
@@ -111,7 +124,8 @@ export async function getAllEncryptedTokensForUser(
   userId: string
 ): Promise<EncryptedTokens[]> {
   try {
-    const adminDb = getAdminDb();
+    const getAdminDbFunc = await initFirebaseAdmin();
+    const adminDb = getAdminDbFunc();
     const snapshot = await adminDb
       .collection('user_tokens')
       .where('user_id', '==', userId)
@@ -119,7 +133,7 @@ export async function getAllEncryptedTokensForUser(
       .get();
 
     const tokens: EncryptedTokens[] = [];
-    snapshot.forEach((doc) => {
+    snapshot.forEach((doc: any) => {
       tokens.push(doc.data() as EncryptedTokens);
     });
 
@@ -135,7 +149,8 @@ export async function restoreDeletedTokens(
   provider: string
 ): Promise<void> {
   try {
-    const adminDb = getAdminDb();
+    const getAdminDbFunc = await initFirebaseAdmin();
+    const adminDb = getAdminDbFunc();
     const snapshot = await adminDb
       .collection('user_tokens')
       .where('user_id', '==', userId)

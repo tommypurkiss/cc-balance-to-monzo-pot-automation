@@ -1,5 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminDb } from '@/lib/firebase-admin';
+
+// Dynamic import to prevent client bundling
+let getAdminDb: () => any;
+
+async function initFirebaseAdmin() {
+  if (!getAdminDb) {
+    const firebaseModule = await import('@/lib/firebase-admin');
+    getAdminDb = firebaseModule.getAdminDb;
+  }
+  return getAdminDb;
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,7 +24,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Find and soft delete the token document for this user/provider combination
-    const adminDb = getAdminDb();
+    const getAdminDbFunc = await initFirebaseAdmin();
+    const adminDb = getAdminDbFunc();
     const snapshot = await adminDb
       .collection('user_tokens')
       .where('user_id', '==', user_id)

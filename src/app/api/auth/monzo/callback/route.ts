@@ -1,8 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
 import { encrypt } from '@/lib/encryptionService';
-import { getAdminDb } from '@/lib/firebase-admin';
 import { getMonzoRedirectUri } from '@/lib/urls';
+
+// Dynamic import to prevent client bundling
+let getAdminDb: () => any;
+
+async function initFirebaseAdmin() {
+  if (!getAdminDb) {
+    const firebaseModule = await import('@/lib/firebase-admin');
+    getAdminDb = firebaseModule.getAdminDb;
+  }
+  return getAdminDb;
+}
 
 interface MonzoTokenResponse {
   access_token: string;
@@ -163,7 +173,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
     console.log('MONZO API TESTING: Storing tokens in Firestore...');
 
-    const adminDb = getAdminDb();
+    const getAdminDbFunc = await initFirebaseAdmin();
+    const adminDb = getAdminDbFunc();
     const existingSnapshot = await adminDb
       .collection('user_tokens')
       .where('user_id', '==', userId)
