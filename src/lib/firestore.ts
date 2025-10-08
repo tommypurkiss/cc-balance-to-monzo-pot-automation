@@ -1,4 +1,4 @@
-import { getAdminDb } from './firebase-admin';
+// Server-side only imports - use dynamic import to prevent client bundling
 import { TrueLayerTokenResponse, EncryptedTokens } from '@/types/truelayer';
 import { encrypt, decrypt } from './encryptionService';
 
@@ -38,6 +38,7 @@ export async function storeEncryptedTokens(
     );
 
     // Check if tokens already exist for this user/provider combination
+    const { getAdminDb } = await import('./firebase-admin');
     const adminDb = getAdminDb();
     const existingSnapshot = await adminDb
       .collection('user_tokens')
@@ -86,6 +87,7 @@ export async function getEncryptedTokens(
   provider: string = 'truelayer'
 ): Promise<EncryptedTokens | null> {
   try {
+    const { getAdminDb } = await import('./firebase-admin');
     const adminDb = getAdminDb();
     const snapshot = await adminDb
       .collection('user_tokens')
@@ -110,6 +112,7 @@ export async function getAllEncryptedTokensForUser(
   userId: string
 ): Promise<EncryptedTokens[]> {
   try {
+    const { getAdminDb } = await import('./firebase-admin');
     const adminDb = getAdminDb();
     const snapshot = await adminDb
       .collection('user_tokens')
@@ -134,6 +137,7 @@ export async function restoreDeletedTokens(
   provider: string
 ): Promise<void> {
   try {
+    const { getAdminDb } = await import('./firebase-admin');
     const adminDb = getAdminDb();
     const snapshot = await adminDb
       .collection('user_tokens')
