@@ -46,11 +46,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     state.substring(0, 10) + '...'
   );
 
-  // Modify redirect URI to go to our confirmation page first
-  const confirmPageUrl = new URL('/auth/monzo-confirm', request.url);
-  const redirectUriForMonzo = confirmPageUrl.toString();
+  // Use the callback URL directly (like localhost)
+  const redirectUriForMonzo = redirectUri;
 
-  console.log('MONZO API TESTING: Confirmation page URL:', redirectUriForMonzo);
+  console.log('MONZO API TESTING: Callback URL:', redirectUriForMonzo);
 
   // Build Monzo authorization URL
   const authUrl = new URL('https://auth.monzo.com/');
