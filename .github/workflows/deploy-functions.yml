@@ -58,10 +58,8 @@ jobs:
       - name: Deploy to Firebase Functions
         if: github.ref == 'refs/heads/main'
         run: |
-          # Set up authentication using environment variables
-          export FIREBASE_TOKEN=${{ secrets.FIREBASE_TOKEN }}
-          firebase use ${{ secrets.FIREBASE_PROJECT_ID }}
-          firebase deploy --only functions --project ${{ secrets.FIREBASE_PROJECT_ID }}
+          # Deploy using Firebase token
+          firebase deploy --only functions --project ${{ secrets.FIREBASE_PROJECT_ID }} --token "${{ secrets.FIREBASE_TOKEN }}"
         env:
           FIREBASE_CLIENT_EMAIL: ${{ secrets.FIREBASE_CLIENT_EMAIL }}
           FIREBASE_PRIVATE_KEY: ${{ secrets.FIREBASE_PRIVATE_KEY }}
