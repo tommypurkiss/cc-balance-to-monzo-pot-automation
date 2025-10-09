@@ -36,17 +36,11 @@ export default function OAuthCallback() {
         setStatus('success');
         setMessage(`Successfully connected ${provider || 'bank account'}!`);
 
-        // If user is authenticated, redirect to dashboard
-        if (currentUser) {
-          setTimeout(() => {
-            router.push('/');
-          }, 2000);
-        } else {
-          // If user is not authenticated, redirect to signin
-          setTimeout(() => {
-            router.push('/signin');
-          }, 2000);
-        }
+        // Always redirect to dashboard after successful TrueLayer connection
+        // The ProtectedRoute component will handle authentication checks
+        setTimeout(() => {
+          router.push('/');
+        }, 2000);
         return;
       }
 
@@ -119,13 +113,7 @@ export default function OAuthCallback() {
 
         <p className="text-gray-300 mb-6">{message}</p>
 
-        {status === 'success' && !currentUser && (
-          <p className="text-sm text-gray-400 mb-4">
-            Redirecting to sign in page...
-          </p>
-        )}
-
-        {status === 'success' && currentUser && (
+        {status === 'success' && (
           <p className="text-sm text-gray-400 mb-4">
             Redirecting to dashboard...
           </p>
