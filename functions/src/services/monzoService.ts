@@ -103,6 +103,59 @@ export class MonzoService {
   }
 
   /**
+   * Get Monzo pots using Monzo API directly (for pot IDs)
+   * This is needed because TrueLayer account IDs != Monzo pot IDs
+   */
+  async getMonzoPots(monzoAccessToken: string): Promise<any[]> {
+    try {
+      const response = await fetch('https://api.monzo.com/pots', {
+        headers: {
+          Authorization: `Bearer ${monzoAccessToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch pots: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log('🔍 Monzo API pots response:', JSON.stringify(data, null, 2));
+      return data.pots || [];
+    } catch (error) {
+      console.error('Error getting Monzo pots:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Find the credit card pot using Monzo API and return the correct pot ID
+   */
+  async findCreditCardPot(monzoAccessToken: string): Promise<any | null> {
+    try {
+      const pots = await this.getMonzoPots(monzoAccessToken);
+
+      // Find pot with "Credit Card" in name or 💳 emoji
+      const creditCardPot = pots.find(
+        (pot) =>
+          pot.name.toLowerCase().includes('credit card') ||
+          pot.name.includes('💳')
+      );
+
+      if (creditCardPot) {
+        console.log(
+          `  🏦 Found credit card pot: ${creditCardPot.name} (ID: ${creditCardPot.id})`
+        );
+      }
+
+      return creditCardPot || null;
+    } catch (error) {
+      console.error('Error finding credit card pot:', error);
+      return null;
+    }
+  }
+
+  /**
    * Calculate how much to transfer to the credit card pot
    * Transfer amount = Total credit card balance - Current pot balance
    */

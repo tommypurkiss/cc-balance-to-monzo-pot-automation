@@ -291,12 +291,26 @@ export const scheduledPotTransfer = onSchedule(
             continue;
           }
 
+          // Find the credit card pot using Monzo API to get the correct pot ID
+          const creditCardPot =
+            await monzoService.findCreditCardPot(monzoAccessToken);
+
+          if (!creditCardPot) {
+            console.log(
+              `  ⚠️ No credit card pot found via Monzo API. Please ensure you have a pot named "Credit Cards" or containing "💳"`
+            );
+            console.log(
+              `  💡 Would have transferred £${transferAmount.toFixed(2)} ${transferAmount > 0 ? 'to' : 'from'} pot`
+            );
+            continue;
+          }
+
           // Execute the transfer!
           console.log(`  🚀 Executing transfer...`);
           await monzoService.transferToPot(
             monzoAccessToken,
             monzoAccounts.mainAccount.account_id,
-            monzoAccounts.creditCardPot.account_id,
+            creditCardPot.id, // Use the correct pot ID from Monzo API
             transferAmount
           );
         } catch (userError) {
