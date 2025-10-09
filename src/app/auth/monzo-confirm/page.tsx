@@ -12,6 +12,8 @@ export default function MonzoConfirmPage() {
 
   const code = searchParams.get('code');
   const state = searchParams.get('state');
+  const success = searchParams.get('success');
+  const userId = searchParams.get('userId');
 
   // Automatically start the authorization process when page loads
   useEffect(() => {
@@ -27,6 +29,15 @@ export default function MonzoConfirmPage() {
     console.log('MONZO API TESTING: State exists:', !!state);
 
     const processAuthorization = async () => {
+      // Check if we're coming from the callback (success flow) or direct from Monzo (old flow)
+      if (success === 'true' && userId) {
+        console.log(
+          'MONZO API TESTING: Coming from successful callback, showing confirm button'
+        );
+        setAuthCompleted(true);
+        return;
+      }
+
       if (!code || !state) {
         console.log('MONZO API TESTING: ERROR - Missing code or state');
         setError('Missing authorization code or state');
