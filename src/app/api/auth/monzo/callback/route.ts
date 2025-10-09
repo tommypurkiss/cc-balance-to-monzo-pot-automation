@@ -195,11 +195,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
     console.log('MONZO API TESTING: ✅ OAuth flow completed successfully!');
 
-    // Return success - the frontend will handle redirect
-    return NextResponse.json({
-      success: true,
-      message: 'Monzo automation enabled successfully',
-    });
+    // Redirect to success page after successful token exchange
+    const successUrl = new URL('/auth/monzo-confirm', request.url);
+    successUrl.searchParams.append('success', 'true');
+    successUrl.searchParams.append('userId', userId);
+
+    return NextResponse.redirect(successUrl.toString());
   } catch (error: any) {
     console.error('MONZO API TESTING: ❌ ERROR in OAuth callback');
     console.error(
