@@ -10,29 +10,37 @@ export function getBaseUrl(): string {
   if (process.env.NODE_ENV === 'production') {
     // First, try custom domain from environment variable
     if (process.env.CUSTOM_DOMAIN) {
+      console.log('🌐 Using CUSTOM_DOMAIN:', process.env.CUSTOM_DOMAIN);
       return process.env.CUSTOM_DOMAIN;
     }
 
     // Then try NETLIFY_SITE_URL
     if (process.env.NETLIFY_SITE_URL) {
+      console.log('🌐 Using NETLIFY_SITE_URL:', process.env.NETLIFY_SITE_URL);
       return process.env.NETLIFY_SITE_URL;
     }
 
     // Force custom domain to avoid main-- prefix
+    console.log(
+      '🌐 Using forced clean domain: https://cc-balance-to-monzo.netlify.app'
+    );
     return 'https://cc-balance-to-monzo.netlify.app';
   }
 
   // In development, use localhost
   if (process.env.NODE_ENV === 'development') {
+    console.log('🌐 Using localhost for development');
     return 'http://localhost:3000';
   }
 
   // Fallback: try to construct from Vercel URL or other hosting platforms
   if (process.env.VERCEL_URL) {
+    console.log('🌐 Using VERCEL_URL:', process.env.VERCEL_URL);
     return `https://${process.env.VERCEL_URL}`;
   }
 
   // Last resort: localhost
+  console.log('🌐 Using localhost as fallback');
   return 'http://localhost:3000';
 }
 

@@ -34,3 +34,9 @@
   from = "/api/auth/truelayer/callback"
   status = 301
   to = "https://cc-balance-to-monzo.netlify.app/api/auth/truelayer/callback"
+
+# Redirect any main-- prefixed URLs to clean domain
+[[redirects]]
+  from = "https://main--cc-balance-to-monzo.netlify.app/*"
+  status = 301
+  to = "https://cc-balance-to-monzo.netlify.app/:splat"
