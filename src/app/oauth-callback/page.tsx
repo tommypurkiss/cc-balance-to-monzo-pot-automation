@@ -15,37 +15,60 @@ export default function OAuthCallback() {
 
   useEffect(() => {
     const processCallback = async () => {
-      // Wait for auth to be ready
-      if (loading) return;
+      console.log('🔄 OAuth Callback - Auth State:', {
+        loading,
+        currentUser: !!currentUser,
+        userId: currentUser?.uid,
+      });
 
       const truelayerSuccess = searchParams.get('truelayer_success');
       const truelayerError = searchParams.get('truelayer_error');
       const errorMessage = searchParams.get('error_message');
       const provider = searchParams.get('provider');
 
+      console.log('🔄 OAuth Callback - Params:', {
+        truelayerSuccess,
+        truelayerError,
+        provider,
+      });
+
+      // Handle errors immediately - don't wait for auth
       if (truelayerError) {
         setStatus('error');
         setMessage(errorMessage || 'OAuth callback failed');
         setTimeout(() => {
-          router.push('/signin');
+          // Only redirect to signin if user is not authenticated
+          if (!currentUser && !loading) {
+            router.push('/signin');
+          } else {
+            router.push('/');
+          }
         }, 3000);
         return;
       }
 
+      // Handle success immediately - don't wait for auth
       if (truelayerSuccess) {
         setStatus('success');
         setMessage(`Successfully connected ${provider || 'bank account'}!`);
 
         // Always redirect to dashboard after successful TrueLayer connection
-        // The ProtectedRoute component will handle authentication checks
+        // Don't wait for auth state - the dashboard will handle it
         setTimeout(() => {
           router.push('/');
         }, 2000);
         return;
       }
 
-      // No OAuth parameters, redirect to signin
-      router.push('/signin');
+      // No OAuth parameters - wait for auth to be ready before redirecting
+      if (loading) return;
+
+      // If no OAuth params and auth is ready, redirect based on auth state
+      if (currentUser) {
+        router.push('/');
+      } else {
+        router.push('/signin');
+      }
     };
 
     processCallback();
