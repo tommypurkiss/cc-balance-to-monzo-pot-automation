@@ -197,21 +197,18 @@ export async function refreshTokens(userId: string): Promise<EncryptedTokens> {
     const { refresh_token } = await decryptTokens(encryptedTokens);
 
     // Exchange refresh token for new access token
-    const response = await fetch(
-      'https://auth.truelayer.com/connect/oauth2/token',
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams({
-          grant_type: 'refresh_token',
-          client_id: process.env.TRUELAYER_CLIENT_ID!,
-          client_secret: process.env.TRUELAYER_CLIENT_SECRET!,
-          refresh_token: refresh_token || '',
-        }),
-      }
-    );
+    const response = await fetch('https://auth.truelayer.com/connect/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        grant_type: 'refresh_token',
+        client_id: process.env.TRUELAYER_CLIENT_ID!,
+        client_secret: process.env.TRUELAYER_CLIENT_SECRET!,
+        refresh_token: refresh_token || '',
+      }),
+    });
 
     if (!response.ok) {
       throw new Error('Failed to refresh tokens');
