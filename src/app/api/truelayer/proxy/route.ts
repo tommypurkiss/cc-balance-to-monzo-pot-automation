@@ -88,8 +88,6 @@ function handleError(error: unknown, method: string) {
 }
 
 export async function GET(request: NextRequest) {
-  console.log('TrueLayer proxy GET request received');
-
   const url = new URL(request.url);
   const validation = validateRequest(url);
 
@@ -100,14 +98,10 @@ export async function GET(request: NextRequest) {
   const { token, endpoint } = validation;
 
   try {
-    console.log(`Making GET request to: https://api.truelayer.com${endpoint}`);
-    console.log(`Token (first 50 chars): ${token!.substring(0, 50)}...`);
-
     const response = await axios.get(`https://api.truelayer.com${endpoint}`, {
       headers: createHeaders(token!),
     });
 
-    console.log(`GET request successful, status: ${response.status}`);
     return NextResponse.json(response.data);
   } catch (error: unknown) {
     const errorObj = error as {
@@ -115,27 +109,19 @@ export async function GET(request: NextRequest) {
         status?: number;
         data?: unknown;
       };
-      config?: {
-        headers?: Record<string, string>;
-      };
     };
 
-    // Enhanced error logging for 401 errors
+    // Only log 401 errors as they indicate token issues
     if (errorObj.response?.status === 401) {
-      console.error('401 Unauthorized - Token may be invalid or expired:', {
-        endpoint,
-        tokenPreview: token!.substring(0, 50) + '...',
-        errorDetails: errorObj.response?.data,
-        headers: errorObj.config?.headers,
-      });
+      console.error(
+        `401 Unauthorized for ${endpoint} - token may be invalid or expired`
+      );
     }
     return handleError(error, 'GET');
   }
 }
 
 export async function POST(request: NextRequest) {
-  console.log('TrueLayer proxy POST request received');
-
   const url = new URL(request.url);
   const validation = validateRequest(url);
 
@@ -147,7 +133,6 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = (await request.json()) as unknown;
-    console.log(`Making POST request to: https://api.truelayer.com${endpoint}`);
 
     const response = await axios.post(
       `https://api.truelayer.com${endpoint}`,
@@ -157,7 +142,6 @@ export async function POST(request: NextRequest) {
       }
     );
 
-    console.log(`POST request successful, status: ${response.status}`);
     return NextResponse.json(response.data);
   } catch (error: unknown) {
     return handleError(error, 'POST');
@@ -165,8 +149,6 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
-  console.log('TrueLayer proxy PUT request received');
-
   const url = new URL(request.url);
   const validation = validateRequest(url);
 
@@ -178,7 +160,6 @@ export async function PUT(request: NextRequest) {
 
   try {
     const body = (await request.json()) as unknown;
-    console.log(`Making PUT request to: https://api.truelayer.com${endpoint}`);
 
     const response = await axios.put(
       `https://api.truelayer.com${endpoint}`,
@@ -188,7 +169,6 @@ export async function PUT(request: NextRequest) {
       }
     );
 
-    console.log(`PUT request successful, status: ${response.status}`);
     return NextResponse.json(response.data);
   } catch (error: unknown) {
     return handleError(error, 'PUT');
@@ -196,8 +176,6 @@ export async function PUT(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  console.log('TrueLayer proxy DELETE request received');
-
   const url = new URL(request.url);
   const validation = validateRequest(url);
 
@@ -208,10 +186,6 @@ export async function DELETE(request: NextRequest) {
   const { token, endpoint } = validation;
 
   try {
-    console.log(
-      `Making DELETE request to: https://api.truelayer.com${endpoint}`
-    );
-
     const response = await axios.delete(
       `https://api.truelayer.com${endpoint}`,
       {
@@ -219,7 +193,6 @@ export async function DELETE(request: NextRequest) {
       }
     );
 
-    console.log(`DELETE request successful, status: ${response.status}`);
     return NextResponse.json(response.data);
   } catch (error: unknown) {
     return handleError(error, 'DELETE');
@@ -228,6 +201,5 @@ export async function DELETE(request: NextRequest) {
 
 // Handle unsupported methods
 export async function OPTIONS() {
-  console.log('TrueLayer proxy OPTIONS request received');
   return new NextResponse(null, { status: 200 });
 }
