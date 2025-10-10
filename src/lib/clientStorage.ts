@@ -62,6 +62,7 @@ class ClientStorageService {
   private sessions: TrueLayerSession[] = [];
   private refreshingTokens: Set<string> = new Set();
   private userId: string = '';
+  private pendingRequests: Map<string, Promise<any>> = new Map();
   private dataCache: {
     [provider: string]: {
       data: any;
@@ -153,6 +154,19 @@ class ClientStorageService {
             createdAt: token.created_at,
             userId: this.userId,
           };
+
+          // Only log if token is expired and has no refresh token
+          const now = Date.now();
+          const isExpired = session.expiresAt
+            ? session.expiresAt <= now
+            : false;
+
+          if (isExpired && !session.refreshToken) {
+            console.log(
+              `⚠️ Token expired for ${token.provider} with no refresh token available`
+            );
+          }
+
           this.sessions.push(session);
         }
       }
@@ -270,7 +284,10 @@ class ClientStorageService {
     }
 
     const session = this.sessions.find((s) => s.provider === provider);
-    if (!session?.refreshToken) return false;
+    if (!session?.refreshToken) {
+      console.log(`❌ No refresh token available for ${provider}`);
+      return false;
+    }
 
     // Check if session is still within 90 days
     if (!this.isSessionValid(session)) {
@@ -282,13 +299,20 @@ class ClientStorageService {
     this.refreshingTokens.add(provider);
 
     try {
-      const response = await fetch('/api/auth/truelayer/refresh', {
+      // Use the correct refresh endpoint based on provider
+      const refreshEndpoint =
+        provider === 'monzo'
+          ? '/api/auth/monzo/refresh'
+          : '/api/auth/truelayer/refresh';
+
+      const response = await fetch(refreshEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ refresh_token: session.refreshToken }),
       });
 
       const data = await response.json();
+
       if (data.access_token) {
         // Update session with new tokens
         session.accessToken = data.access_token;
@@ -299,11 +323,15 @@ class ClientStorageService {
           session.expiresAt = Date.now() + data.expires_in * 1000;
         }
         await this.addSession(session);
-        console.log(`Token refreshed for ${provider}`);
+        console.log(`✅ Token refreshed successfully for ${provider}`);
         return true;
+      } else {
+        console.log(
+          `❌ Token refresh failed for ${provider}: No access token in response`
+        );
       }
     } catch (error) {
-      console.error('Token refresh failed:', error);
+      console.error(`❌ Token refresh failed for ${provider}:`, error);
     } finally {
       this.refreshingTokens.delete(provider);
     }
@@ -320,40 +348,110 @@ class ClientStorageService {
     const session = this.sessions.find((s) => s.provider === provider);
     if (!session) throw new Error('No session found for provider');
 
+    // Create a unique key for this request to prevent duplicates
+    const requestKey = `${provider}:${endpoint}:${retryCount}`;
+
+    // If this exact request is already pending, return the existing promise
+    if (this.pendingRequests.has(requestKey)) {
+      return this.pendingRequests.get(requestKey)!;
+    }
+
+    // Create the promise for this request
+    const requestPromise = this.executeApiCall<T>(
+      endpoint,
+      provider,
+      retryCount
+    );
+
+    // Store the promise to prevent duplicate requests
+    this.pendingRequests.set(requestKey, requestPromise);
+
+    try {
+      const result = await requestPromise;
+      return result;
+    } finally {
+      // Clean up the pending request
+      this.pendingRequests.delete(requestKey);
+    }
+  }
+
+  // Execute the actual API call
+  private async executeApiCall<T>(
+    endpoint: string,
+    provider: string,
+    retryCount: number = 0
+  ): Promise<T> {
+    const session = this.sessions.find((s) => s.provider === provider);
+    if (!session) throw new Error('No session found for provider');
+
     // Check if token needs refresh before making the call
-    if (
-      this.isTokenExpired(session) &&
-      session.refreshToken &&
-      !this.refreshingTokens.has(provider)
-    ) {
-      console.log(`Token for ${provider} is expired, refreshing...`);
-      const refreshed = await this.refreshToken(provider);
-      if (!refreshed) {
-        throw new Error('Token refresh failed');
+    if (this.isTokenExpired(session)) {
+      if (session.refreshToken && !this.refreshingTokens.has(provider)) {
+        console.log(`Token for ${provider} is expired, refreshing...`);
+        const refreshed = await this.refreshToken(provider);
+        if (!refreshed) {
+          throw new Error('Token refresh failed');
+        }
+      } else {
+        // Token is expired but no refresh token available
+        console.log(
+          `❌ Token for ${provider} is expired and no refresh token available. Please reconnect your account.`
+        );
+        throw new Error(
+          `Token expired and no refresh token available for ${provider}. Please reconnect your account.`
+        );
       }
     }
 
-    const response = await fetch(
-      `/api/truelayer/proxy?token=${encodeURIComponent(session.accessToken)}&endpoint=${encodeURIComponent(endpoint)}`
-    );
+    // Use the correct API endpoint based on provider
+    let response: Response;
+    if (provider === 'monzo') {
+      // Direct Monzo API call
+      response = await fetch(`https://api.monzo.com${endpoint}`, {
+        headers: {
+          Authorization: `Bearer ${session.accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+    } else {
+      // TrueLayer proxy for other providers
+      response = await fetch(
+        `/api/truelayer/proxy?token=${encodeURIComponent(session.accessToken)}&endpoint=${encodeURIComponent(endpoint)}`
+      );
+    }
 
     if (!response.ok) {
       const error = await response
         .json()
         .catch(() => ({ error: 'Unknown error' }));
 
-      // If it's an auth error and we haven't retried yet, try refreshing the token
+      // Only log errors that aren't expected (like provider not supporting endpoint)
       if (
-        (error.error?.includes('invalid_token') || response.status === 401) &&
-        retryCount === 0 &&
-        session.refreshToken
+        response.status !== 501 ||
+        error.details?.error !== 'endpoint_not_supported'
       ) {
+        console.log(
+          `❌ API call failed for ${provider}: ${response.status} ${response.statusText}`
+        );
+      }
+
+      // Handle different types of errors
+      if (response.status === 401 && retryCount === 0 && session.refreshToken) {
         console.log(`Auth error for ${provider}, attempting token refresh...`);
         const refreshed = await this.refreshToken(provider);
         if (refreshed) {
           // Retry the call with the new token
           return this.apiCall<T>(endpoint, provider, retryCount + 1);
         }
+      } else if (
+        response.status === 501 &&
+        error.details?.error === 'endpoint_not_supported'
+      ) {
+        // This is a TrueLayer API error - the provider doesn't support this endpoint
+        console.log(
+          `⚠️ Provider ${provider} does not support endpoint ${endpoint}`
+        );
+        throw new Error(`Provider ${provider} does not support this endpoint`);
       }
 
       throw new Error(error.error || `HTTP ${response.status}`);
