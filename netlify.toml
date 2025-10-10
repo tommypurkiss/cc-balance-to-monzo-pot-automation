@@ -5,7 +5,7 @@
 [build.environment]
   # Disable secret scanning for FIREBASE_PROJECT_ID since it's being bundled
   # despite our webpack configuration attempts
-  SECRETS_SCAN_OMIT_KEYS = "FIREBASE_PROJECT_ID"
+  SECRETS_SCAN_OMIT_KEYS = "FIREBASE_PROJECT_ID,MONZO_REDIRECT_URI,TRUELAYER_REDIRECT_URI"
 
 [[headers]]
   for = "/_next/static/*"
@@ -23,3 +23,9 @@
   query = { q = ":quality", url = ":url", w = ":width" }
   status = 200
   to = "/.netlify/images?url=:url&w=:width&q=:quality"
+
+# Redirect any main-- prefixed URLs to clean domain
+[[redirects]]
+  from = "https://main--cc-balance-to-monzo.netlify.app/*"
+  status = 301
+  to = "https://cc-balance-to-monzo.netlify.app/:splat"

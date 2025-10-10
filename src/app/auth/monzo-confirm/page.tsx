@@ -103,6 +103,8 @@ export default function MonzoConfirmPage() {
     console.log(
       'MONZO API TESTING: User confirmed approval, redirecting to dashboard...'
     );
+    console.log('🔄 Monzo Confirm - Current URL:', window.location.href);
+    // Always redirect to dashboard - let ProtectedRoute handle auth checks
     router.push('/?monzo_connected=true');
   };
 

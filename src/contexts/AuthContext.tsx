@@ -57,10 +57,23 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setCurrentUser(user);
-      setLoading(false);
-    });
+    const unsubscribe = onAuthStateChanged(
+      auth,
+      (user) => {
+        console.log('🔐 Auth State Changed:', {
+          user: !!user,
+          userId: user?.uid,
+          email: user?.email,
+        });
+        setCurrentUser(user);
+        setLoading(false);
+      },
+      (error) => {
+        console.error('🔐 Auth State Error:', error);
+        setCurrentUser(null);
+        setLoading(false);
+      }
+    );
 
     return unsubscribe;
   }, []);
