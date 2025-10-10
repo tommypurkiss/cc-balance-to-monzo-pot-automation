@@ -1,48 +1,205 @@
 import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
 
-export async function GET(request: NextRequest) {
-  const url = new URL(request.url);
+// Helper function to create headers
+function createHeaders(token: string) {
+  return {
+    Authorization: `Bearer ${token}`,
+    Accept: 'application/json',
+    'X-PSU-IP': '127.0.0.1',
+    'X-Client-Correlation-Id': `proxy-${Date.now()}`,
+  };
+}
+
+// Helper function to validate request parameters
+function validateRequest(url: URL) {
   const token = url.searchParams.get('token');
   const endpoint = url.searchParams.get('endpoint');
 
   if (!token) {
-    return NextResponse.json(
-      { error: 'Missing access token' },
-      { status: 400 }
-    );
+    return {
+      error: NextResponse.json(
+        { error: 'Missing access token' },
+        { status: 400 }
+      ),
+      token: null,
+      endpoint: null,
+    };
   }
 
   if (!endpoint) {
-    return NextResponse.json(
-      { error: 'Missing endpoint parameter' },
-      { status: 400 }
-    );
+    return {
+      error: NextResponse.json(
+        { error: 'Missing endpoint parameter' },
+        { status: 400 }
+      ),
+      token: null,
+      endpoint: null,
+    };
   }
+
+  // Basic token format validation
+  if (token.length < 10) {
+    return {
+      error: NextResponse.json(
+        { error: 'Invalid token format - token too short' },
+        { status: 400 }
+      ),
+      token: null,
+      endpoint: null,
+    };
+  }
+
+  return { error: null, token, endpoint };
+}
+
+// Helper function to handle errors
+function handleError(error: unknown, method: string) {
+  const errorObj = error as {
+    message?: string;
+    response?: {
+      data?: unknown;
+      status?: number;
+    };
+    config?: {
+      url?: string;
+      method?: string;
+    };
+  };
+
+  console.error(`TrueLayer proxy ${method} error:`, {
+    message: errorObj.message,
+    response: errorObj.response?.data,
+    status: errorObj.response?.status,
+    config: {
+      url: errorObj.config?.url,
+      method: errorObj.config?.method,
+    },
+  });
+
+  return NextResponse.json(
+    {
+      error: 'Failed to fetch data',
+      details: errorObj.response?.data || errorObj.message,
+      method,
+    },
+    { status: errorObj.response?.status || 500 }
+  );
+}
+
+export async function GET(request: NextRequest) {
+  const url = new URL(request.url);
+  const validation = validateRequest(url);
+
+  if (validation.error) {
+    return validation.error;
+  }
+
+  const { token, endpoint } = validation;
 
   try {
     const response = await axios.get(`https://api.truelayer.com${endpoint}`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: 'application/json',
-        'X-PSU-IP': '127.0.0.1',
-        'X-Client-Correlation-Id': `proxy-${Date.now()}`,
-      },
+      headers: createHeaders(token!),
     });
 
     return NextResponse.json(response.data);
-  } catch (error: any) {
-    console.error(
-      'TrueLayer proxy error:',
-      error.response?.data || error.message
+  } catch (error: unknown) {
+    const errorObj = error as {
+      response?: {
+        status?: number;
+        data?: unknown;
+      };
+    };
+
+    // Only log 401 errors as they indicate token issues
+    if (errorObj.response?.status === 401) {
+      console.error(
+        `401 Unauthorized for ${endpoint} - token may be invalid or expired`
+      );
+    }
+    return handleError(error, 'GET');
+  }
+}
+
+export async function POST(request: NextRequest) {
+  const url = new URL(request.url);
+  const validation = validateRequest(url);
+
+  if (validation.error) {
+    return validation.error;
+  }
+
+  const { token, endpoint } = validation;
+
+  try {
+    const body = (await request.json()) as unknown;
+
+    const response = await axios.post(
+      `https://api.truelayer.com${endpoint}`,
+      body,
+      {
+        headers: createHeaders(token!),
+      }
     );
 
-    return NextResponse.json(
-      {
-        error: 'Failed to fetch data',
-        details: error.response?.data || error.message,
-      },
-      { status: error.response?.status || 500 }
-    );
+    return NextResponse.json(response.data);
+  } catch (error: unknown) {
+    return handleError(error, 'POST');
   }
+}
+
+export async function PUT(request: NextRequest) {
+  const url = new URL(request.url);
+  const validation = validateRequest(url);
+
+  if (validation.error) {
+    return validation.error;
+  }
+
+  const { token, endpoint } = validation;
+
+  try {
+    const body = (await request.json()) as unknown;
+
+    const response = await axios.put(
+      `https://api.truelayer.com${endpoint}`,
+      body,
+      {
+        headers: createHeaders(token!),
+      }
+    );
+
+    return NextResponse.json(response.data);
+  } catch (error: unknown) {
+    return handleError(error, 'PUT');
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  const url = new URL(request.url);
+  const validation = validateRequest(url);
+
+  if (validation.error) {
+    return validation.error;
+  }
+
+  const { token, endpoint } = validation;
+
+  try {
+    const response = await axios.delete(
+      `https://api.truelayer.com${endpoint}`,
+      {
+        headers: createHeaders(token!),
+      }
+    );
+
+    return NextResponse.json(response.data);
+  } catch (error: unknown) {
+    return handleError(error, 'DELETE');
+  }
+}
+
+// Handle unsupported methods
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 200 });
 }
