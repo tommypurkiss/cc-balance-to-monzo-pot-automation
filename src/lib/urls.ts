@@ -6,9 +6,20 @@
  * Get the base URL for the current environment
  */
 export function getBaseUrl(): string {
-  // In production (Netlify), use the NETLIFY_SITE_URL or construct from headers
-  if (process.env.NETLIFY_SITE_URL) {
-    return process.env.NETLIFY_SITE_URL;
+  // In production (Netlify), prioritize custom domain over branch deployment URL
+  if (process.env.NODE_ENV === 'production') {
+    // First, try custom domain from environment variable
+    if (process.env.CUSTOM_DOMAIN) {
+      return process.env.CUSTOM_DOMAIN;
+    }
+
+    // Then try NETLIFY_SITE_URL
+    if (process.env.NETLIFY_SITE_URL) {
+      return process.env.NETLIFY_SITE_URL;
+    }
+
+    // Force custom domain to avoid main-- prefix
+    return 'https://cc-balance-to-monzo.netlify.app';
   }
 
   // In development, use localhost
