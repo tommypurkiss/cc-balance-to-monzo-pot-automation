@@ -83,8 +83,12 @@ export function BankingDataProvider({
         const errorMessage =
           err instanceof Error ? err.message : 'Unknown error';
 
-        // Check if it's an authentication error
-        if (
+        // Check if it's a "no sessions" case (empty state, not an error)
+        if (errorMessage.includes('No valid sessions found')) {
+          // This is an empty state, not an error - set empty data and no error
+          setData({});
+          setError(null);
+        } else if (
           errorMessage.includes('invalid_token') ||
           errorMessage.includes('401') ||
           errorMessage.includes('unauthorized')
