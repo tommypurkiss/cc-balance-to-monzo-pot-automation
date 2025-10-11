@@ -15,13 +15,38 @@ const truelayerClientSecret = defineSecret('TRUELAYER_CLIENT_SECRET');
 const monzoClientId = defineSecret('MONZO_CLIENT_ID');
 const monzoClientSecret = defineSecret('MONZO_CLIENT_SECRET');
 
+interface AutomationRule {
+  id: string;
+  userId: string;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  sourceAccount: {
+    provider: string;
+    accountId: string;
+  };
+  targetPot: {
+    potId: string;
+    potName: string;
+  };
+  creditCards: Array<{
+    provider: string;
+    accountId: string;
+    displayName: string;
+    partialCardNumber: string;
+  }>;
+  minimumBankBalance: number;
+  transferType: 'full_balance';
+}
+
 /**
  * Scheduled function that runs every night at 2:00 AM (UK time)
  *
  * This function will:
- * 1. Check total credit card balances for users
- * 2. Check Monzo account balance
- * 3. Automatically transfer funds to a designated Monzo pot
+ * 1. Check for active automation rules for each user
+ * 2. Get credit card balances for selected cards
+ * 3. Check Monzo account balance against minimum threshold
+ * 4. Automatically transfer funds to the user-selected pot
  *
  * Cron expression: '0 2 * * *' means:
  * - minute: 0 (at the start of the hour)
@@ -59,155 +84,123 @@ export const scheduledPotTransfer = onSchedule(
     console.log('📝 Job name:', event.jobName);
 
     try {
-      // Initialize services
-      // const truelayerService = new TrueLayerService(
-      //   encryptionKey.value(),
-      //   truelayerClientId.value(),
-      //   truelayerClientSecret.value()
-      // );
-      // const monzoService = new MonzoService(truelayerService);
-
-      // Get all users who have TrueLayer tokens (for now, we'll process all users)
       const db = admin.firestore();
-      const tokensSnapshot = await db
-        .collection('user_tokens')
-        .where('deleted', '==', false)
+
+      // Get all users who have automation rules
+      const automationRulesSnapshot = await db
+        .collection('user_automations')
         .get();
 
-      if (tokensSnapshot.empty) {
-        console.log('ℹ️ No users with tokens found');
+      if (automationRulesSnapshot.empty) {
+        console.log('ℹ️ No users with automation rules found');
         return;
       }
 
-      // Get unique user IDs
-      const userIds = new Set<string>();
-      tokensSnapshot.forEach((doc) => {
-        const data = doc.data();
-        userIds.add(data.user_id);
-      });
+      console.log(
+        `📊 Processing ${automationRulesSnapshot.size} user(s) with automation rules`
+      );
 
-      console.log(`📊 Processing ${userIds.size} user(s)`);
+      // Process each user's automation rules
+      for (const doc of automationRulesSnapshot.docs) {
+        const userId = doc.id;
+        const userData = doc.data();
+        const rules: AutomationRule[] = userData.rules || [];
 
-      // Process each user
-      for (const userId of userIds) {
-        console.log(`\n👤 Processing user: ${userId}`);
-        console.log(`🔍 DEBUG: About to check encryption key...`);
         console.log(
-          `🔍 ENCRYPTION KEY CHECK: First 10 chars: ${encryptionKey.value().substring(0, 10)}...`
-        );
-        console.log(
-          `🔍 DEBUG: Encryption key check completed, about to run encryption test...`
+          `\n👤 Processing user: ${userId} (${rules.length} rule(s))`
         );
 
-        // Debug: Check what tokens this user has
-        const userTokenDocs = tokensSnapshot.docs.filter(
-          (doc) => doc.data().user_id === userId
-        );
-        const userTokens = userTokenDocs.map((doc) => ({
-          provider: doc.data().provider,
-          deleted: doc.data().deleted,
-          hasAccessToken: !!doc.data().access_token,
-          accessTokenLength: doc.data().access_token?.length || 0,
-        }));
-        console.log(`🔍 User tokens:`, userTokens);
+        // Find active automation rules
+        const activeRules = rules.filter((rule) => rule.isActive);
 
-        // Debug: Check if tokens look valid
-        for (const doc of userTokenDocs) {
-          const data = doc.data();
-          console.log(`🔍 Token for ${data.provider}:`, {
-            hasAccessToken: !!data.access_token,
-            hasRefreshToken: !!data.refresh_token,
-            expiresAt: data.expires_at,
-            created: new Date(data.created_at).toISOString(),
-          });
-
-          // Debug: Show first few characters of each encrypted token
-          if (data.access_token) {
-            console.log(
-              `🔍 ${data.provider} encrypted access_token (first 50 chars): ${data.access_token.substring(0, 50)}...`
-            );
-          }
+        if (activeRules.length === 0) {
+          console.log('  ⚠️ No active automation rules found, skipping user');
+          continue;
         }
 
-        // Process each user's tokens
-        try {
-          // Separate credit card providers from bank providers
-          const creditCardProviders = userTokens
-            .filter(
-              (token) =>
-                !token.deleted &&
-                token.provider !== 'monzo' &&
-                token.provider !== 'ob-monzo'
-            )
-            .map((token) => token.provider);
+        // Process the first active rule (for now, we only support one rule per user)
+        const rule = activeRules[0];
+        console.log(`  📋 Processing rule: ${rule.id}`);
+        console.log(
+          `  🎯 Target pot: ${rule.targetPot.potName} (${rule.targetPot.potId})`
+        );
+        console.log(`  💳 Credit cards: ${rule.creditCards.length} selected`);
+        console.log(
+          `  💰 Minimum bank balance: £${(rule.minimumBankBalance / 100).toFixed(2)}`
+        );
 
-          // Find both Monzo tokens
-          const obMonzoToken = userTokens.find(
-            (token) => !token.deleted && token.provider === 'ob-monzo'
-          );
-          const monzoToken = userTokens.find(
+        try {
+          // Check if user has required tokens
+          const tokensSnapshot = await db
+            .collection('user_tokens')
+            .where('user_id', '==', userId)
+            .where('deleted', '==', false)
+            .get();
+
+          if (tokensSnapshot.empty) {
+            console.log('  ⚠️ No tokens found for user, skipping');
+            continue;
+          }
+
+          const userTokens = tokensSnapshot.docs.map((doc) => ({
+            provider: doc.data().provider,
+            deleted: doc.data().deleted,
+            hasAccessToken: !!doc.data().access_token,
+          }));
+
+          // Check for required tokens
+          const hasMonzoToken = userTokens.some(
             (token) => !token.deleted && token.provider === 'monzo'
           );
+          const hasObMonzoToken = userTokens.some(
+            (token) => !token.deleted && token.provider === 'ob-monzo'
+          );
 
-          console.log(`💳 Credit card providers:`, creditCardProviders);
-          console.log(`🏦 ob-monzo token:`, obMonzoToken ? 'Found' : 'Missing');
-          console.log(`🏦 monzo token:`, monzoToken ? 'Found' : 'Missing');
-
-          // Skip if no credit card providers found
-          if (creditCardProviders.length === 0) {
-            console.log('  ⚠️ No credit card providers found, skipping user');
+          if (!hasMonzoToken) {
+            console.log(
+              '  ⚠️ No direct Monzo token found (needed for transfers), skipping'
+            );
             continue;
           }
 
-          // Skip if no ob-monzo token found (needed for reading account data)
-          if (!obMonzoToken) {
-            console.log('  ⚠️ No ob-monzo token found, skipping user');
+          if (!hasObMonzoToken) {
+            console.log(
+              '  ⚠️ No ob-monzo token found (needed for reading data), skipping'
+            );
             continue;
           }
 
-          // Skip if no monzo token found (needed for writing transfers)
-          if (!monzoToken) {
-            console.log('  ⚠️ No monzo token found, skipping user');
-            continue;
-          }
-
+          // Get credit card balances for selected cards
           let totalCreditCardBalance = 0;
           let totalCardsFound = 0;
 
-          // Get cards from each credit card provider
-          for (const provider of creditCardProviders) {
+          for (const card of rule.creditCards) {
             try {
-              const cards = await truelayerService.getCards(userId, provider);
-              console.log(`  📱 ${provider}: Found ${cards.length} card(s)`);
-              totalCardsFound += cards.length;
-
-              // Get balance for each card
-              for (const card of cards) {
-                const balance = await truelayerService.getCardBalance(
-                  userId,
-                  card.account_id,
-                  provider
+              const balance = await truelayerService.getCardBalance(
+                userId,
+                card.accountId,
+                card.provider
+              );
+              if (balance) {
+                console.log(
+                  `    - ${card.displayName} (****${card.partialCardNumber}): ${balance.currency} ${balance.current}`
                 );
-                if (balance) {
-                  console.log(
-                    `    - ${card.display_name}: ${balance.currency} ${balance.current}`
-                  );
-                  totalCreditCardBalance += balance.current;
-                }
+                totalCreditCardBalance += balance.current;
+                totalCardsFound++;
               }
-            } catch (providerError: any) {
+            } catch (cardError: any) {
               console.log(
-                `  ⚠️ Error getting cards from ${provider}:`,
-                providerError.message
+                `    ⚠️ Error getting balance for ${card.displayName}:`,
+                cardError.message
               );
             }
           }
 
           console.log(
-            `💰 Total credit card balance: £${totalCreditCardBalance.toFixed(2)} (from ${totalCardsFound} cards)`
+            `  💳 Total credit card balance: £${totalCreditCardBalance.toFixed(2)} (from ${totalCardsFound} cards)`
           );
 
-          // Get Monzo accounts (main account and credit card pot) using ob-monzo token
+          // Get Monzo accounts using ob-monzo token
           const monzoAccounts = await monzoService.getMonzoAccounts(
             userId,
             'ob-monzo'
@@ -218,63 +211,22 @@ export const scheduledPotTransfer = onSchedule(
             continue;
           }
 
-          if (!monzoAccounts.creditCardPot) {
-            console.log('  ⚠️ No credit card pot found, skipping user');
-            continue;
-          }
-
-          // Calculate transfer amount
-          const currentPotBalance =
-            monzoAccounts.creditCardPot.balance?.current || 0;
-          const transferAmount = monzoService.calculateTransferAmount(
-            totalCreditCardBalance,
-            currentPotBalance
-          );
-
-          if (transferAmount === 0) {
-            console.log('  ℹ️ No transfer needed, balances are aligned');
-            continue;
-          }
-
           const mainAccountBalance =
             monzoAccounts.mainAccount.balance?.available || 0;
-          const totalMonzoBalance = mainAccountBalance + currentPotBalance;
+          console.log(
+            `  💰 Main account balance: £${mainAccountBalance.toFixed(2)}`
+          );
 
-          console.log(`\n💡 Transfer summary:`);
-          console.log(
-            `  Credit card debt: £${totalCreditCardBalance.toFixed(2)}`
-          );
-          console.log(
-            `  Current pot balance: £${currentPotBalance.toFixed(2)}`
-          );
-          console.log(
-            `  Main account balance: £${mainAccountBalance.toFixed(2)}`
-          );
-          console.log(
-            `  Total Monzo balance: £${totalMonzoBalance.toFixed(2)}`
-          );
-          console.log(`  Transfer needed: £${transferAmount.toFixed(2)}`);
-
-          // Safety check: Only transfer if total Monzo balance > total credit card debt
-          if (totalMonzoBalance <= totalCreditCardBalance) {
+          // Check minimum bank balance threshold
+          if (mainAccountBalance <= rule.minimumBankBalance) {
             console.log(
-              `  ⚠️ SAFETY CHECK FAILED: Total Monzo balance (£${totalMonzoBalance.toFixed(2)}) is not greater than credit card debt (£${totalCreditCardBalance.toFixed(2)})`
+              `  ⚠️ MINIMUM BALANCE CHECK FAILED: Main account balance (£${mainAccountBalance.toFixed(2)}) is at or below minimum threshold (£${(rule.minimumBankBalance / 100).toFixed(2)})`
             );
-            console.log(
-              `  💡 Skipping transfer to avoid overdrawing. You need at least £${(totalCreditCardBalance + 1).toFixed(2)} total in Monzo.`
-            );
+            console.log('  💡 Skipping transfer to maintain minimum balance');
             continue;
           }
 
-          // Check if user has enough money in main account for deposit
-          if (transferAmount > 0 && transferAmount > mainAccountBalance) {
-            console.log(
-              `  ⚠️ Insufficient funds in main account (need £${transferAmount.toFixed(2)}, have £${mainAccountBalance.toFixed(2)})`
-            );
-            continue;
-          }
-
-          // Get Monzo OAuth access token and execute transfer
+          // Get Monzo OAuth access token for transfers
           const monzoAccessToken = await monzoService.getMonzoAccessToken(
             userId,
             monzoClientId.value(),
@@ -283,36 +235,71 @@ export const scheduledPotTransfer = onSchedule(
 
           if (!monzoAccessToken) {
             console.log(
-              `  ⚠️ No Monzo OAuth access token found. User needs to click "Enable Automation" in dashboard.`
-            );
-            console.log(
-              `  💡 Would have transferred £${transferAmount.toFixed(2)} ${transferAmount > 0 ? 'to' : 'from'} pot`
+              `  ⚠️ No Monzo OAuth access token found. User needs to connect Monzo with write access.`
             );
             continue;
           }
 
-          // Find the credit card pot using Monzo API to get the correct pot ID
-          const creditCardPot =
-            await monzoService.findCreditCardPot(monzoAccessToken);
+          // Get the target pot using Monzo API
+          const targetPot = await monzoService.getPotById(
+            monzoAccessToken,
+            rule.targetPot.potId
+          );
 
-          if (!creditCardPot) {
+          if (!targetPot) {
             console.log(
-              `  ⚠️ No credit card pot found via Monzo API. Please ensure you have a pot named "Credit Cards" or containing "💳"`
-            );
-            console.log(
-              `  💡 Would have transferred £${transferAmount.toFixed(2)} ${transferAmount > 0 ? 'to' : 'from'} pot`
+              `  ⚠️ Target pot "${rule.targetPot.potName}" not found via Monzo API`
             );
             continue;
           }
+
+          const currentPotBalance = targetPot.balance || 0;
+          console.log(
+            `  🏦 Current pot balance: £${(currentPotBalance / 100).toFixed(2)}`
+          );
+
+          // Calculate transfer amount (full credit card balance)
+          const transferAmount = totalCreditCardBalance * 100; // Convert to pence
+          const transferAmountPounds = transferAmount / 100;
+
+          if (transferAmount === 0) {
+            console.log('  ℹ️ No credit card debt found, no transfer needed');
+            continue;
+          }
+
+          // Safety check: Ensure we have enough in main account
+          if (transferAmount > mainAccountBalance * 100) {
+            console.log(
+              `  ⚠️ INSUFFICIENT FUNDS: Need £${transferAmountPounds.toFixed(2)} but only have £${mainAccountBalance.toFixed(2)} in main account`
+            );
+            continue;
+          }
+
+          console.log(`\n  💡 Transfer summary:`);
+          console.log(
+            `    Credit card debt: £${totalCreditCardBalance.toFixed(2)}`
+          );
+          console.log(
+            `    Current pot balance: £${(currentPotBalance / 100).toFixed(2)}`
+          );
+          console.log(
+            `    Main account balance: £${mainAccountBalance.toFixed(2)}`
+          );
+          console.log(
+            `    Transfer amount: £${transferAmountPounds.toFixed(2)}`
+          );
+          console.log(`    Target pot: ${rule.targetPot.potName}`);
 
           // Execute the transfer!
           console.log(`  🚀 Executing transfer...`);
           await monzoService.transferToPot(
             monzoAccessToken,
             monzoAccounts.mainAccount.account_id,
-            creditCardPot.id, // Use the correct pot ID from Monzo API
+            rule.targetPot.potId,
             transferAmount
           );
+
+          console.log(`  ✅ Transfer completed successfully!`);
         } catch (userError) {
           console.error(`❌ Error processing user ${userId}:`, userError);
           // Continue with next user
