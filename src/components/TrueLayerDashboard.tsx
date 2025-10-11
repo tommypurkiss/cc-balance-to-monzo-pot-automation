@@ -32,11 +32,18 @@ const getProviderDisplayName = (providerId: string) => {
   return providerNames[providerId] || providerId;
 };
 
-const formatCurrency = (amount: number, currency: string) => {
+const formatCurrency = (
+  amount: number,
+  currency: string,
+  isMonzo: boolean = false
+) => {
+  // Monzo API returns amounts in pennies (minor units), so divide by 100
+  const displayAmount = isMonzo ? amount / 100 : amount;
+
   return new Intl.NumberFormat('en-GB', {
     style: 'currency',
     currency: currency,
-  }).format(amount);
+  }).format(displayAmount);
 };
 
 export default function TrueLayerDashboard() {
@@ -512,10 +519,14 @@ export default function TrueLayerDashboard() {
           if (!monzoData || monzoData.accounts.length === 0) return null;
 
           const monzoTransactionAccounts = monzoData.accounts.filter(
-            (account) => account.account_type === 'TRANSACTION'
+            (account) =>
+              account.product_type === 'standard' ||
+              account.account_type === 'TRANSACTION'
           );
           const monzoSavingsAccounts = monzoData.accounts.filter(
-            (account) => account.account_type === 'SAVINGS'
+            (account) =>
+              account.product_type === 'rewards' ||
+              account.account_type === 'SAVINGS'
           );
           const isSavingsExpanded = savingsExpanded['monzo'] || false;
 
@@ -593,16 +604,24 @@ export default function TrueLayerDashboard() {
                   <div className="space-y-3">
                     {monzoTransactionAccounts.map((account) => (
                       <div
-                        key={account.account_id}
+                        key={account.id || account.account_id}
                         className="bg-gray-600 p-3 rounded border border-gray-500"
                       >
                         <div className="flex items-center justify-between mb-2">
                           <h4 className="font-medium text-white">
-                            {account.display_name}
+                            {account.product_type === 'standard'
+                              ? 'Current Account'
+                              : account.product_type === 'rewards'
+                                ? 'Rewards Account'
+                                : account.display_name || 'Monzo Account'}
                           </h4>
-                          <span className="text-xs text-gray-400">
-                            {account.account_type}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            {account.account_number && (
+                              <span className="text-xs text-gray-400">
+                                ****{account.account_number.slice(-4)}
+                              </span>
+                            )}
+                          </div>
                         </div>
 
                         {account.balance ? (
@@ -611,8 +630,11 @@ export default function TrueLayerDashboard() {
                               <p className="text-gray-400">Available Balance</p>
                               <p className="font-semibold text-lg text-white">
                                 {formatCurrency(
-                                  account.balance.available,
-                                  account.balance.currency
+                                  account.balance.available ||
+                                    account.balance.balance ||
+                                    0,
+                                  account.balance.currency || account.currency,
+                                  true // isMonzo
                                 )}
                               </p>
                             </div>
@@ -620,16 +642,21 @@ export default function TrueLayerDashboard() {
                               <p className="text-gray-400">Current Balance</p>
                               <p className="font-semibold text-white">
                                 {formatCurrency(
-                                  account.balance.current,
-                                  account.balance.currency
+                                  account.balance.current ||
+                                    account.balance.balance ||
+                                    0,
+                                  account.balance.currency || account.currency,
+                                  true // isMonzo
                                 )}
                               </p>
                             </div>
                           </div>
                         ) : (
-                          <p className="text-gray-400 text-sm">
-                            Balance unavailable
-                          </p>
+                          <div className="text-center py-4">
+                            <p className="text-gray-400 text-sm">
+                              Loading balance...
+                            </p>
+                          </div>
                         )}
                       </div>
                     ))}
@@ -655,16 +682,22 @@ export default function TrueLayerDashboard() {
                       <div className="space-y-2">
                         {monzoSavingsAccounts.map((account) => (
                           <div
-                            key={account.account_id}
+                            key={account.id || account.account_id}
                             className="bg-gray-600 p-3 rounded border border-gray-500"
                           >
                             <div className="flex items-center justify-between mb-2">
                               <h5 className="font-medium text-white">
-                                {account.display_name}
+                                {account.product_type === 'rewards'
+                                  ? 'Rewards Pot'
+                                  : account.description ||
+                                    account.display_name ||
+                                    'Pot'}
                               </h5>
-                              <span className="text-xs text-gray-400">
-                                {account.account_type}
-                              </span>
+                              {account.account_number && (
+                                <span className="text-xs text-gray-400">
+                                  ****{account.account_number.slice(-4)}
+                                </span>
+                              )}
                             </div>
 
                             {account.balance ? (
@@ -675,8 +708,12 @@ export default function TrueLayerDashboard() {
                                   </p>
                                   <p className="font-semibold text-white">
                                     {formatCurrency(
-                                      account.balance.available,
-                                      account.balance.currency
+                                      account.balance.available ||
+                                        account.balance.balance ||
+                                        0,
+                                      account.balance.currency ||
+                                        account.currency,
+                                      true // isMonzo
                                     )}
                                   </p>
                                 </div>
@@ -686,15 +723,19 @@ export default function TrueLayerDashboard() {
                                   </p>
                                   <p className="font-semibold text-white">
                                     {formatCurrency(
-                                      account.balance.current,
-                                      account.balance.currency
+                                      account.balance.current ||
+                                        account.balance.balance ||
+                                        0,
+                                      account.balance.currency ||
+                                        account.currency,
+                                      true // isMonzo
                                     )}
                                   </p>
                                 </div>
                               </div>
                             ) : (
                               <p className="text-gray-400 text-sm">
-                                Balance unavailable
+                                Loading balance...
                               </p>
                             )}
                           </div>
@@ -788,7 +829,7 @@ export default function TrueLayerDashboard() {
                       )}
                     </div>
                   ) : (
-                    <p className="text-gray-400 text-sm">Balance unavailable</p>
+                    <p className="text-gray-400 text-sm">Loading balance...</p>
                   )}
                 </div>
               ))}
@@ -947,7 +988,7 @@ export default function TrueLayerDashboard() {
                               </div>
                             ) : (
                               <p className="text-gray-400 text-sm">
-                                Balance unavailable
+                                Loading balance...
                               </p>
                             )}
                           </div>
@@ -1013,7 +1054,7 @@ export default function TrueLayerDashboard() {
                                   </div>
                                 ) : (
                                   <p className="text-gray-400 text-sm">
-                                    Balance unavailable
+                                    Loading balance...
                                   </p>
                                 )}
                               </div>
