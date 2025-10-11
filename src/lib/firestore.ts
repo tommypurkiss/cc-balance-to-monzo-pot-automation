@@ -8,16 +8,6 @@ export async function storeEncryptedTokens(
   provider: string = 'truelayer'
 ): Promise<void> {
   try {
-    console.log(
-      `🔍 FRONTEND ENCRYPTION DEBUG: Encrypting tokens for provider: ${provider}`
-    );
-    console.log(
-      `🔍 FRONTEND ENCRYPTION DEBUG: Access token length: ${tokens.access_token.length}`
-    );
-    console.log(
-      `🔍 FRONTEND ENCRYPTION DEBUG: Access token first 50 chars: ${tokens.access_token.substring(0, 50)}...`
-    );
-
     const encryptedTokens: EncryptedTokens = {
       access_token: await encrypt(tokens.access_token),
       refresh_token: await encrypt(tokens.refresh_token),
@@ -29,13 +19,6 @@ export async function storeEncryptedTokens(
       updated_at: Date.now(),
       deleted: false,
     };
-
-    console.log(
-      `🔍 FRONTEND ENCRYPTION DEBUG: Encrypted access token length: ${encryptedTokens.access_token.length}`
-    );
-    console.log(
-      `🔍 FRONTEND ENCRYPTION DEBUG: Encrypted access token first 50 chars: ${encryptedTokens.access_token.substring(0, 50)}...`
-    );
 
     // Check if tokens already exist for this user/provider combination
     const { getAdminDb } = await import('./firebase-admin');
@@ -60,21 +43,9 @@ export async function storeEncryptedTokens(
           deleted: false, // Ensure it's not marked as deleted
           deleted_at: null, // Clear deletion timestamp
         });
-      console.log(
-        'Tokens updated successfully for user:',
-        userId,
-        'provider:',
-        provider
-      );
     } else {
       // Create new document with random ID
       await adminDb.collection('user_tokens').add(encryptedTokens);
-      console.log(
-        'Tokens stored successfully for user:',
-        userId,
-        'provider:',
-        provider
-      );
     }
   } catch (error) {
     console.error('Error storing encrypted tokens:', error);
@@ -153,12 +124,6 @@ export async function restoreDeletedTokens(
         deleted_at: null,
         updated_at: Date.now(),
       });
-      console.log(
-        '✅ Tokens restored for user:',
-        userId,
-        'provider:',
-        provider
-      );
     }
   } catch (error) {
     console.error('Error restoring deleted tokens:', error);

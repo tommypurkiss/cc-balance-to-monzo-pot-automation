@@ -98,7 +98,6 @@ class ClientStorageService {
   // Initialize with user ID
   setUserId(userId: string) {
     this.userId = userId;
-    console.log('✅ Set user ID in clientStorage:', userId);
   }
 
   // Cache management
@@ -166,7 +165,6 @@ class ClientStorageService {
 
       if (response.ok) {
         const tokens = await response.json();
-        console.log('✅ Loaded tokens from Firestore:', tokens);
 
         // Convert Firestore tokens to sessions
         for (const token of tokens) {
@@ -178,18 +176,6 @@ class ClientStorageService {
             createdAt: token.created_at,
             userId: this.userId,
           };
-
-          // Only log if token is expired and has no refresh token
-          const now = Date.now();
-          const isExpired = session.expiresAt
-            ? session.expiresAt <= now
-            : false;
-
-          if (isExpired && !session.refreshToken) {
-            console.log(
-              `⚠️ Token expired for ${token.provider} with no refresh token available`
-            );
-          }
 
           this.sessions.push(session);
         }
@@ -225,7 +211,6 @@ class ClientStorageService {
             provider: session.provider,
           }),
         });
-        console.log('✅ Tokens stored in Firestore');
       } catch (error) {
         console.warn('⚠️ Failed to store tokens in Firestore:', error);
       }
@@ -236,9 +221,6 @@ class ClientStorageService {
   async removeSession(provider: string): Promise<void> {
     this.sessions = this.sessions.filter((s) => s.provider !== provider);
     this.clearCache(provider); // Clear cache for this provider
-    console.log(
-      `✅ Session cleared for ${provider} (tokens remain in Firestore)`
-    );
   }
 
   // Permanently delete tokens from Firestore (for account disconnection)
@@ -254,7 +236,6 @@ class ClientStorageService {
             provider: provider,
           }),
         });
-        console.log('✅ Tokens permanently deleted from Firestore');
       } catch (error) {
         console.warn('⚠️ Failed to delete tokens from Firestore:', error);
       }
@@ -303,19 +284,16 @@ class ClientStorageService {
   async refreshToken(provider: string): Promise<boolean> {
     // Prevent multiple simultaneous refreshes for the same provider
     if (this.refreshingTokens.has(provider)) {
-      console.log(`Token refresh already in progress for ${provider}`);
       return false;
     }
 
     const session = this.sessions.find((s) => s.provider === provider);
     if (!session?.refreshToken) {
-      console.log(`❌ No refresh token available for ${provider}`);
       return false;
     }
 
     // Check if session is still within 90 days
     if (!this.isSessionValid(session)) {
-      console.log(`Session for ${provider} has expired (90 days)`);
       await this.removeSession(provider);
       return false;
     }
@@ -347,12 +325,7 @@ class ClientStorageService {
           session.expiresAt = Date.now() + data.expires_in * 1000;
         }
         await this.addSession(session);
-        console.log(`✅ Token refreshed successfully for ${provider}`);
         return true;
-      } else {
-        console.log(
-          `❌ Token refresh failed for ${provider}: No access token in response`
-        );
       }
     } catch (error) {
       console.error(`❌ Token refresh failed for ${provider}:`, error);
@@ -411,16 +384,12 @@ class ClientStorageService {
     // Check if token needs refresh before making the call
     if (this.isTokenExpired(session)) {
       if (session.refreshToken && !this.refreshingTokens.has(provider)) {
-        console.log(`Token for ${provider} is expired, refreshing...`);
         const refreshed = await this.refreshToken(provider);
         if (!refreshed) {
           throw new Error('Token refresh failed');
         }
       } else {
         // Token is expired but no refresh token available
-        console.log(
-          `❌ Token for ${provider} is expired and no refresh token available. Please reconnect your account.`
-        );
         throw new Error(
           `Token expired and no refresh token available for ${provider}. Please reconnect your account.`
         );
@@ -432,16 +401,12 @@ class ClientStorageService {
     if (provider === 'monzo') {
       // Direct Monzo API call
       const url = `https://api.monzo.com${endpoint}`;
-      console.log(`🔍 Making Monzo API call to: ${url}`);
       response = await fetch(url, {
         headers: {
           Authorization: `Bearer ${session.accessToken}`,
           'Content-Type': 'application/json',
         },
       });
-      console.log(
-        `📡 Monzo API response status: ${response.status} ${response.statusText}`
-      );
     } else {
       // TrueLayer proxy for other providers
       response = await fetch(
@@ -459,14 +424,10 @@ class ClientStorageService {
         response.status !== 501 ||
         error.details?.error !== 'endpoint_not_supported'
       ) {
-        console.log(
-          `❌ API call failed for ${provider}: ${response.status} ${response.statusText}`
-        );
       }
 
       // Handle different types of errors
       if (response.status === 401 && retryCount === 0 && session.refreshToken) {
-        console.log(`Auth error for ${provider}, attempting token refresh...`);
         const refreshed = await this.refreshToken(provider);
         if (refreshed) {
           // Retry the call with the new token
@@ -477,9 +438,7 @@ class ClientStorageService {
         error.details?.error === 'endpoint_not_supported'
       ) {
         // This is a TrueLayer API error - the provider doesn't support this endpoint
-        console.log(
-          `⚠️ Provider ${provider} does not support endpoint ${endpoint}`
-        );
+
         throw new Error(`Provider ${provider} does not support this endpoint`);
       }
 
@@ -487,9 +446,7 @@ class ClientStorageService {
     }
 
     const responseData = await response.json();
-    if (provider === 'monzo') {
-      console.log(`📊 Monzo API response data:`, responseData);
-    }
+
     return responseData;
   }
 
@@ -538,13 +495,10 @@ class ClientStorageService {
     try {
       if (provider === 'monzo') {
         // Use Monzo's direct API endpoint
-        console.log(`🔍 Fetching Monzo accounts...`);
         const data = await this.apiCall<{ accounts: AccountData[] }>(
           '/accounts',
           provider
         );
-        console.log(`📊 Monzo accounts data:`, data);
-        console.log(`📊 Monzo accounts array:`, data.accounts);
         return data.accounts || [];
       }
 
@@ -554,7 +508,6 @@ class ClientStorageService {
       );
       return data.results || [];
     } catch (error) {
-      console.log(`❌ Error fetching accounts for ${provider}:`, error);
       throw error;
     }
   }
@@ -567,12 +520,10 @@ class ClientStorageService {
     try {
       if (provider === 'monzo') {
         // Use Monzo's direct API endpoint
-        console.log(`🔍 Fetching Monzo balance for account: ${accountId}`);
         const data = await this.apiCall<AccountBalance>(
           `/balance?account_id=${accountId}`,
           provider
         );
-        console.log(`💰 Monzo balance data:`, data);
         return data || null;
       }
 
@@ -582,10 +533,6 @@ class ClientStorageService {
       );
       return data.results?.[0] || null;
     } catch (error) {
-      console.log(
-        `❌ Error fetching balance for ${provider} account ${accountId}:`,
-        error
-      );
       throw error;
     }
   }
@@ -604,7 +551,6 @@ class ClientStorageService {
       // Check cache first
       const cachedData = this.getCache(session.provider);
       if (cachedData) {
-        console.log(`✅ Using cached data for ${session.provider}`);
         allData[session.provider] = cachedData;
         hasAnyData = true;
         continue;
@@ -619,7 +565,6 @@ class ClientStorageService {
         // Get cards and their balances
         try {
           const cards = await this.getCards(session.provider);
-          console.log('cards', cards);
           for (const card of cards) {
             try {
               const balance = await this.getCardBalance(
@@ -651,9 +596,7 @@ class ClientStorageService {
         // Get accounts and their balances
         try {
           const accounts = await this.getAccounts(session.provider);
-          console.log('accounts', accounts);
           for (const account of accounts) {
-            // console.log('account', account);
             try {
               // Use the correct account ID field for Monzo vs TrueLayer
               const accountId = account.id || account.account_id;
@@ -695,7 +638,6 @@ class ClientStorageService {
 
         // Cache the data for this provider
         this.setCache(session.provider, allData[session.provider]);
-        console.log(`💾 Cached data for ${session.provider}`);
       } catch (error) {
         console.error(`Failed to get data for ${session.provider}:`, error);
         if (

@@ -15,22 +15,10 @@ export default function OAuthCallback() {
 
   useEffect(() => {
     const processCallback = async () => {
-      console.log('🔄 OAuth Callback - Auth State:', {
-        loading,
-        currentUser: !!currentUser,
-        userId: currentUser?.uid,
-      });
-
       const truelayerSuccess = searchParams.get('truelayer_success');
       const truelayerError = searchParams.get('truelayer_error');
       const errorMessage = searchParams.get('error_message');
       const provider = searchParams.get('provider');
-
-      console.log('🔄 OAuth Callback - Params:', {
-        truelayerSuccess,
-        truelayerError,
-        provider,
-      });
 
       // Handle errors immediately - don't wait for auth
       if (truelayerError) {

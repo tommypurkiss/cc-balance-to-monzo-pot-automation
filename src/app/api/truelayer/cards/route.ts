@@ -22,10 +22,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     let access_token = sessionStorage.getValidToken(userId);
 
     if (access_token) {
-      console.log('✅ Using token from session storage');
     } else {
-      console.log('🔄 No valid session token, checking Firestore...');
-
       // Fall back to Firestore
       const encryptedTokens = await getEncryptedTokens(userId);
       if (!encryptedTokens) {
@@ -41,16 +38,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       const { expires_at, refresh_token } =
         await decryptTokens(encryptedTokens);
       if (Date.now() >= expires_at) {
-        console.log('🔄 Access token expired, checking for refresh token...');
         if (refresh_token && refresh_token.trim() !== '') {
-          console.log('🔄 Refresh token available, refreshing...');
           const refreshedTokens = await refreshTokens(userId);
           const { access_token: newToken } =
             await decryptTokens(refreshedTokens);
           access_token = newToken;
-          console.log('✅ Tokens refreshed successfully');
         } else {
-          console.log('❌ No refresh token available, cannot refresh');
           return NextResponse.json(
             {
               error:
@@ -60,7 +53,6 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           );
         }
       } else {
-        console.log('✅ Access token is still valid in Firestore');
         const { access_token: firestoreToken } =
           await decryptTokens(encryptedTokens);
         access_token = firestoreToken;
