@@ -156,6 +156,38 @@ export class MonzoService {
   }
 
   /**
+   * Get a specific pot by ID using Monzo API
+   */
+  async getPotById(
+    monzoAccessToken: string,
+    potId: string
+  ): Promise<any | null> {
+    try {
+      const response = await fetch(`https://api.monzo.com/pots/${potId}`, {
+        headers: {
+          Authorization: `Bearer ${monzoAccessToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          console.log(`  ⚠️ Pot with ID ${potId} not found`);
+          return null;
+        }
+        throw new Error(`Failed to fetch pot: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log(`  🏦 Found pot: ${data.name} (ID: ${data.id})`);
+      return data;
+    } catch (error) {
+      console.error('Error getting pot by ID:', error);
+      return null;
+    }
+  }
+
+  /**
    * Calculate how much to transfer to the credit card pot
    * Transfer amount = Total credit card balance - Current pot balance
    */

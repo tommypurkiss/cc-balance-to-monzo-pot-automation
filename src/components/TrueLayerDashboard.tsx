@@ -10,6 +10,7 @@ import {
   AccountData,
   AccountBalance,
 } from '@/lib/clientStorage';
+import AutomationSetup from './AutomationSetup';
 
 const getProviderDisplayName = (providerId: string) => {
   const providerNames: { [key: string]: string } = {
@@ -1071,49 +1072,8 @@ export default function TrueLayerDashboard() {
         );
       })()}
 
-      {/* Step 3: Automation Preview */}
-      {step2Complete && (
-        <div className="border border-orange-600 bg-gradient-to-r from-orange-900/20 to-yellow-900/20 p-6 rounded-lg">
-          <h2 className="text-xl font-semibold text-orange-400 mb-4 flex items-center">
-            <span className="mr-2">🎯</span>
-            Step 3: Set Up Automation Rules
-          </h2>
-          <div className="bg-gray-800/50 border border-orange-500/30 p-4 rounded-lg">
-            <div className="text-center">
-              <div className="mb-4">
-                <div className="mx-auto w-12 h-12 bg-orange-600/20 rounded-full flex items-center justify-center mb-3">
-                  <svg
-                    className="w-6 h-6 text-orange-400"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
-                </div>
-                <h3 className="text-lg font-medium text-white mb-2">
-                  Automation Rules Coming Soon
-                </h3>
-                <p className="text-gray-300 text-sm mb-4">
-                  Configure automatic transfers from your credit cards to your
-                  Monzo pot based on your spending patterns.
-                </p>
-              </div>
-              <button
-                disabled
-                className="bg-gray-600 text-gray-400 px-6 py-3 rounded-lg font-medium cursor-not-allowed"
-              >
-                Coming Soon
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Step 3: Automation Setup */}
+      {step2Complete && <AutomationSetup />}
     </div>
   );
 }
