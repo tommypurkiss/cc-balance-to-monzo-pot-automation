@@ -221,15 +221,6 @@ export const scheduledPotTransfer = onSchedule(
             `  💰 Main account balance: £${mainAccountBalance.toFixed(2)}`
           );
 
-          // Check minimum bank balance threshold
-          if (mainAccountBalance <= rule.minimumBankBalance) {
-            console.log(
-              `  ⚠️ MINIMUM BALANCE CHECK FAILED: Main account balance (£${mainAccountBalance.toFixed(2)}) is at or below minimum threshold (£${(rule.minimumBankBalance / 100).toFixed(2)})`
-            );
-            console.log('  💡 Skipping transfer to maintain minimum balance');
-            continue;
-          }
-
           // Get the target pot balance using the pot ID from the automation rule
           const currentPotBalance = await monzoService.getPotBalance(
             monzoAccessToken,
@@ -253,6 +244,15 @@ export const scheduledPotTransfer = onSchedule(
 
           if (transferAmount === 0) {
             console.log('  ℹ️ No credit card debt found, no transfer needed');
+            continue;
+          }
+
+          // Check minimum bank balance threshold
+          if (mainAccountBalance <= rule.minimumBankBalance / 100) {
+            console.log(
+              `  ⚠️ MINIMUM BALANCE CHECK FAILED: Main account balance (£${mainAccountBalance.toFixed(2)}) is at or below minimum threshold (£${(rule.minimumBankBalance / 100).toFixed(2)})`
+            );
+            console.log('  💡 Skipping transfer to maintain minimum balance');
             continue;
           }
 
