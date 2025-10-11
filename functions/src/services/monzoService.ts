@@ -1,167 +1,44 @@
-import { TrueLayerService } from './truelayerService';
-
-interface MonzoAccount {
-  account_id: string;
-  display_name: string;
-  account_type: string;
-  balance: {
-    current: number;
-    available: number;
-    currency: string;
-  } | null;
-}
-
-interface MonzoAccounts {
-  mainAccount: MonzoAccount | null;
-  creditCardPot: MonzoAccount | null;
-}
-
 export class MonzoService {
-  private truelayerService: TrueLayerService;
-
-  constructor(truelayerService: TrueLayerService) {
-    this.truelayerService = truelayerService;
-  }
-
   /**
-   * Get Monzo main account and credit card pot using TrueLayer
+   * Get account balance using Monzo API
    */
-  async getMonzoAccounts(
-    userId: string,
-    provider: string = 'ob-monzo'
-  ): Promise<MonzoAccounts> {
-    const result: MonzoAccounts = {
-      mainAccount: null,
-      creditCardPot: null,
-    };
-
+  async getAccountBalance(
+    monzoAccessToken: string,
+    accountId: string
+  ): Promise<number | null> {
     try {
-      // Get all accounts from TrueLayer
-      const accounts = await this.truelayerService.getAccounts(
-        userId,
-        provider
+      const response = await fetch(
+        `https://api.monzo.com/balance?account_id=${accountId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${monzoAccessToken}`,
+            'Content-Type': 'application/json',
+          },
+        }
       );
-
-      console.log(`🏦 Found ${accounts.length} Monzo account(s)`);
-
-      // Find main account (TRANSACTION type)
-      const mainAccount = accounts.find(
-        (acc) => acc.account_type === 'TRANSACTION'
-      );
-
-      if (mainAccount) {
-        const balance = await this.truelayerService.getAccountBalance(
-          userId,
-          mainAccount.account_id,
-          provider
-        );
-
-        result.mainAccount = {
-          account_id: mainAccount.account_id,
-          display_name: mainAccount.display_name,
-          account_type: mainAccount.account_type,
-          balance,
-        };
-
-        console.log(
-          `  ✅ Main account: ${mainAccount.display_name} - £${balance?.available || 0}`
-        );
-      }
-
-      // Find credit card pot (SAVINGS type with "Credit Card" in name)
-      const creditCardPot = accounts.find(
-        (acc) =>
-          acc.account_type === 'SAVINGS' &&
-          (acc.display_name.toLowerCase().includes('credit card') ||
-            acc.display_name.includes('💳'))
-      );
-
-      if (creditCardPot) {
-        const balance = await this.truelayerService.getAccountBalance(
-          userId,
-          creditCardPot.account_id,
-          provider
-        );
-
-        result.creditCardPot = {
-          account_id: creditCardPot.account_id,
-          display_name: creditCardPot.display_name,
-          account_type: creditCardPot.account_type,
-          balance,
-        };
-
-        console.log(
-          `  ✅ Credit card pot: ${creditCardPot.display_name} - £${balance?.current || 0}`
-        );
-      }
-
-      return result;
-    } catch (error) {
-      console.error('Error getting Monzo accounts:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Get Monzo pots using Monzo API directly (for pot IDs)
-   * This is needed because TrueLayer account IDs != Monzo pot IDs
-   */
-  async getMonzoPots(monzoAccessToken: string): Promise<any[]> {
-    try {
-      const response = await fetch('https://api.monzo.com/pots', {
-        headers: {
-          Authorization: `Bearer ${monzoAccessToken}`,
-          'Content-Type': 'application/json',
-        },
-      });
 
       if (!response.ok) {
-        throw new Error(`Failed to fetch pots: ${response.statusText}`);
+        console.error(
+          `Failed to fetch account balance: ${response.statusText}`
+        );
+        return null;
       }
 
       const data = await response.json();
-      console.log('🔍 Monzo API pots response:', JSON.stringify(data, null, 2));
-      return data.pots || [];
+      return data.balance / 100; // Convert from pence to pounds
     } catch (error) {
-      console.error('Error getting Monzo pots:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Find the credit card pot using Monzo API and return the correct pot ID
-   */
-  async findCreditCardPot(monzoAccessToken: string): Promise<any | null> {
-    try {
-      const pots = await this.getMonzoPots(monzoAccessToken);
-
-      // Find pot with "Credit Card" in name or 💳 emoji
-      const creditCardPot = pots.find(
-        (pot) =>
-          pot.name.toLowerCase().includes('credit card') ||
-          pot.name.includes('💳')
-      );
-
-      if (creditCardPot) {
-        console.log(
-          `  🏦 Found credit card pot: ${creditCardPot.name} (ID: ${creditCardPot.id})`
-        );
-      }
-
-      return creditCardPot || null;
-    } catch (error) {
-      console.error('Error finding credit card pot:', error);
+      console.error('Error getting account balance:', error);
       return null;
     }
   }
 
   /**
-   * Get a specific pot by ID using Monzo API
+   * Get pot balance using Monzo API
    */
-  async getPotById(
+  async getPotBalance(
     monzoAccessToken: string,
     potId: string
-  ): Promise<any | null> {
+  ): Promise<number | null> {
     try {
       const response = await fetch(`https://api.monzo.com/pots/${potId}`, {
         headers: {
@@ -175,39 +52,20 @@ export class MonzoService {
           console.log(`  ⚠️ Pot with ID ${potId} not found`);
           return null;
         }
-        throw new Error(`Failed to fetch pot: ${response.statusText}`);
+        console.error(`Failed to fetch pot: ${response.statusText}`);
+        return null;
       }
 
       const data = await response.json();
-      console.log(`  🏦 Found pot: ${data.name} (ID: ${data.id})`);
-      return data;
+      return data.balance; // Pot balance is already in pence
     } catch (error) {
-      console.error('Error getting pot by ID:', error);
+      console.error('Error getting pot balance:', error);
       return null;
     }
   }
 
   /**
-   * Calculate how much to transfer to the credit card pot
-   * Transfer amount = Total credit card balance - Current pot balance
-   */
-  calculateTransferAmount(
-    totalCreditCardBalance: number,
-    currentPotBalance: number
-  ): number {
-    const transferAmount = totalCreditCardBalance - currentPotBalance;
-
-    // Don't transfer if the difference is less than £1 (avoid small transfers)
-    if (Math.abs(transferAmount) < 1) {
-      console.log('  ℹ️ Transfer amount less than £1, skipping transfer');
-      return 0;
-    }
-
-    return transferAmount;
-  }
-
-  /**
-   * Transfer money to/from the credit card pot using Monzo API
+   * Transfer money to/from a pot using Monzo API
    *
    * Positive amount = deposit into pot (from main account)
    * Negative amount = withdraw from pot (to main account)
