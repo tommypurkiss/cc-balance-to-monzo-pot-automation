@@ -88,7 +88,7 @@ export const scheduledPotTransfer = onSchedule(
 
       // Get all users who have automation rules
       const automationRulesSnapshot = await db
-        .collection('user_automations')
+        .collection('automation_rules')
         .get();
 
       if (automationRulesSnapshot.empty) {
