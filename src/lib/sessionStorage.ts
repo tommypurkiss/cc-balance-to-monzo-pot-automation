@@ -95,9 +95,6 @@ class SessionStorageService {
           this.sessions.push(session);
         } else {
           // Clean up expired session
-          console.log(
-            `Removing expired session for ${provider} (90 days exceeded)`
-          );
           this.removeSession(provider);
         }
       }
@@ -190,7 +187,6 @@ class SessionStorageService {
   async refreshToken(provider: string): Promise<boolean> {
     // Prevent multiple simultaneous refreshes for the same provider
     if (this.refreshingTokens.has(provider)) {
-      console.log(`Token refresh already in progress for ${provider}`);
       return false;
     }
 
@@ -199,7 +195,6 @@ class SessionStorageService {
 
     // Check if session is still within 90 days
     if (!this.isSessionValid(session)) {
-      console.log(`Session for ${provider} has expired (90 days)`);
       this.removeSession(provider);
       return false;
     }
@@ -224,7 +219,6 @@ class SessionStorageService {
           session.expiresAt = Date.now() + data.expires_in * 1000;
         }
         this.addSession(session);
-        console.log(`Token refreshed for ${provider}`);
         return true;
       }
     } catch (error) {
@@ -251,7 +245,6 @@ class SessionStorageService {
       session.refreshToken &&
       !this.refreshingTokens.has(provider)
     ) {
-      console.log(`Token for ${provider} is expired, refreshing...`);
       const refreshed = await this.refreshToken(provider);
       if (!refreshed) {
         throw new Error('Token refresh failed');
@@ -273,7 +266,6 @@ class SessionStorageService {
         retryCount === 0 &&
         session.refreshToken
       ) {
-        console.log(`Auth error for ${provider}, attempting token refresh...`);
         const refreshed = await this.refreshToken(provider);
         if (refreshed) {
           // Retry the call with the new token

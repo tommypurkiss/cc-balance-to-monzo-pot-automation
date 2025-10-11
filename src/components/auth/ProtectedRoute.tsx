@@ -17,9 +17,6 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
     // Add a small delay to prevent race conditions with OAuth callbacks
     const timer = setTimeout(() => {
       if (!loading && !currentUser) {
-        console.log(
-          '🔒 ProtectedRoute: No authenticated user, redirecting to signin'
-        );
         router.push('/signin');
       }
     }, 100); // Small delay to allow auth state to stabilize

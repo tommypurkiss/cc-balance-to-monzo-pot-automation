@@ -23,19 +23,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    console.log(
-      '🔍 [Pots API] Found encrypted tokens:',
-      encryptedTokens.length
-    );
-
     // Find Monzo token (direct API access)
     const monzoEncryptedToken = encryptedTokens.find(
       (token: any) => token.provider === 'monzo' && !token.deleted
-    );
-
-    console.log(
-      '🔍 [Pots API] Found Monzo encrypted token:',
-      monzoEncryptedToken ? 'YES' : 'NO'
     );
 
     if (!monzoEncryptedToken) {
@@ -99,8 +89,6 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         { status: 404 }
       );
     }
-
-    console.log('🔍 [Pots API] Found current account:', currentAccount.id);
 
     // Fetch pots from Monzo API with current_account_id
     const potsResponse = await fetch(

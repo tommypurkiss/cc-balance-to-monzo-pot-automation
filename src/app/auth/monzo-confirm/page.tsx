@@ -19,91 +19,44 @@ export default function MonzoConfirmPage() {
   useEffect(() => {
     // Prevent duplicate calls (React 18 Strict Mode runs useEffect twice in dev)
     if (hasStartedAuth.current) {
-      console.log('MONZO API TESTING: Already started auth, skipping...');
       return;
     }
 
     hasStartedAuth.current = true;
-    console.log('MONZO API TESTING: Confirmation page loaded');
-    console.log('MONZO API TESTING: Code exists:', !!code);
-    console.log('MONZO API TESTING: State exists:', !!state);
 
     const processAuthorization = async () => {
       // Check if we're coming from the callback (success flow) or direct from Monzo (old flow)
       if (success === 'true' && userId) {
-        console.log(
-          'MONZO API TESTING: Coming from successful callback, showing confirm button'
-        );
         setAuthCompleted(true);
         return;
       }
 
       if (!code || !state) {
-        console.log('MONZO API TESTING: ERROR - Missing code or state');
         setError('Missing authorization code or state');
         return;
       }
 
       try {
-        console.log(
-          'MONZO API TESTING: Starting token exchange (this will trigger Monzo notification)...'
-        );
-
         // Call the callback endpoint to complete the OAuth flow
         // This will trigger the Monzo app notification
-        const response = await fetch(
+        await fetch(
           `/api/auth/monzo/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`
         );
 
-        console.log(
-          'MONZO API TESTING: Callback response status:',
-          response.status
-        );
-
-        // Even if there's an error response, if we got a response at all,
-        // the token exchange likely succeeded (notification was sent)
-        // So we'll show the confirm button regardless
-        try {
-          const data = await response.json();
-          console.log('MONZO API TESTING: Response data:', data);
-
-          if (response.ok && data.success) {
-            console.log(
-              'MONZO API TESTING: ✅ Authorization completed successfully!'
-            );
-          } else {
-            console.log(
-              'MONZO API TESTING: ⚠️ Got error response, but notification was sent, so proceeding...'
-            );
-          }
-        } catch (parseError) {
-          console.log(
-            'MONZO API TESTING: Could not parse response, but proceeding anyway...'
-          );
-        }
-
         // Always show the confirm button - if they got this far, the notification was sent
-        console.log('MONZO API TESTING: ✅ Showing confirmation button');
         setAuthCompleted(true);
       } catch (err) {
-        console.error('MONZO API TESTING: ❌ Network error:', err);
+        console.error('Network error:', err);
         // Even on network error, if we have code and state, show the button
         // The user got the notification, so they can proceed
-        console.log(
-          'MONZO API TESTING: Showing confirmation button anyway (notification was sent)'
-        );
         setAuthCompleted(true);
       }
     };
 
     processAuthorization();
-  }, [code, state]);
+  }, [code, state, success, userId]);
 
   const handleConfirm = () => {
-    console.log(
-      'MONZO API TESTING: User confirmed approval, redirecting to dashboard...'
-    );
-    console.log('🔄 Monzo Confirm - Current URL:', window.location.href);
     // Always redirect to dashboard - let ProtectedRoute handle auth checks
     router.push('/?monzo_connected=true');
   };

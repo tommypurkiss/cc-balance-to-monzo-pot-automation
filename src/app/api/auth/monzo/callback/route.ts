@@ -19,35 +19,21 @@ interface MonzoTokenResponse {
  * This is now called from the frontend confirmation page, not directly from Monzo
  */
 export async function GET(request: NextRequest): Promise<NextResponse> {
-  console.log('MONZO API TESTING: Callback route hit');
-
   const { searchParams } = new URL(request.url);
   const code = searchParams.get('code');
   const state = searchParams.get('state');
 
-  console.log('MONZO API TESTING: Code exists:', !!code);
-  console.log('MONZO API TESTING: State exists:', !!state);
-  console.log(
-    'MONZO API TESTING: Code (first 20 chars):',
-    code?.substring(0, 20) + '...'
-  );
-
   if (!code || !state) {
-    console.log('MONZO API TESTING: ERROR - Missing code or state');
     return NextResponse.json(
       { error: 'Missing authorization code or state' },
       { status: 400 }
     );
   }
 
-  console.log('MONZO API TESTING: Processing OAuth callback...');
-
   // Extract userId from state (format: "state:userId")
   const [, userId] = state.split(':');
-  console.log('MONZO API TESTING: Extracted user ID:', userId);
 
   if (!userId) {
-    console.log('MONZO API TESTING: ERROR - Invalid state format');
     return NextResponse.json(
       { error: 'Invalid state parameter' },
       { status: 400 }
@@ -68,13 +54,6 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   }
 
   try {
-    console.log('MONZO API TESTING: Starting token exchange...');
-    console.log(
-      'MONZO API TESTING: Client ID:',
-      clientId?.substring(0, 10) + '...'
-    );
-    console.log('MONZO API TESTING: Redirect URI:', redirectUri);
-
     const tokenResponse = await axios.post<MonzoTokenResponse>(
       'https://api.monzo.com/oauth2/token',
       new URLSearchParams({
@@ -92,21 +71,6 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     );
 
     const tokens = tokenResponse.data;
-    console.log('MONZO API TESTING: ✅ Token exchange successful');
-    console.log(
-      'MONZO API TESTING: Full token response:',
-      JSON.stringify(tokens, null, 2)
-    );
-    console.log(
-      'MONZO API TESTING: Access token received:',
-      !!tokens.access_token
-    );
-    console.log(
-      'MONZO API TESTING: Refresh token received:',
-      !!tokens.refresh_token
-    );
-    console.log('MONZO API TESTING: Expires in:', tokens.expires_in, 'seconds');
-    console.log('MONZO API TESTING: Monzo user ID:', tokens.user_id);
 
     // Check if access_token is present (refresh_token is optional for pre-verification apps)
     if (!tokens.access_token) {
@@ -116,26 +80,22 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
     // Log if refresh_token is missing (expected for pre-verification apps)
     if (!tokens.refresh_token) {
-      console.log(
-        'MONZO API TESTING: ⚠️ No refresh_token (normal for pre-verification apps)'
-      );
-      console.log(
-        'MONZO API TESTING: Token will expire in:',
-        tokens.expires_in / 3600,
-        'hours'
-      );
+      // No refresh_token (normal for pre-verification apps)
     }
 
-    console.log('MONZO API TESTING: Encrypting tokens...');
-    console.log(
-      `🔍 FRONTEND MONZO ENCRYPTION DEBUG: Access token length: ${tokens.access_token.length}`
-    );
-    console.log(
-      `🔍 FRONTEND MONZO ENCRYPTION DEBUG: Access token first 50 chars: ${tokens.access_token.substring(0, 50)}...`
-    );
-
     // Encrypt and store tokens in Firestore
-    const encryptedTokens: any = {
+    const encryptedTokens: {
+      access_token: string;
+      expires_at: number;
+      scope: string;
+      provider: string;
+      user_id: string;
+      monzo_user_id: string;
+      created_at: number;
+      updated_at: number;
+      deleted: boolean;
+      refresh_token?: string;
+    } = {
       access_token: await encrypt(tokens.access_token),
       expires_at: Date.now() + tokens.expires_in * 1000,
       scope: tokens.scope || 'monzo-api-access',
@@ -147,20 +107,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       deleted: false,
     };
 
-    console.log(
-      `🔍 FRONTEND MONZO ENCRYPTION DEBUG: Encrypted access token length: ${encryptedTokens.access_token.length}`
-    );
-    console.log(
-      `🔍 FRONTEND MONZO ENCRYPTION DEBUG: Encrypted access token first 50 chars: ${encryptedTokens.access_token.substring(0, 50)}...`
-    );
-
     // Only encrypt and store refresh_token if it exists
     if (tokens.refresh_token) {
       encryptedTokens.refresh_token = await encrypt(tokens.refresh_token);
-      console.log('MONZO API TESTING: Refresh token included');
     }
-
-    console.log('MONZO API TESTING: Storing tokens in Firestore...');
 
     const { getAdminDb } = await import('@/lib/firebase-admin');
     const adminDb = getAdminDb();
@@ -174,7 +124,6 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     if (!existingSnapshot.empty) {
       // Update existing document
       const docId = existingSnapshot.docs[0].id;
-      console.log('MONZO API TESTING: Found existing tokens, updating...');
       await adminDb
         .collection('user_tokens')
         .doc(docId)
@@ -183,17 +132,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           created_at: existingSnapshot.docs[0].data().created_at,
           updated_at: Date.now(),
         });
-      console.log(
-        'MONZO API TESTING: ✅ Updated existing Monzo tokens in Firestore'
-      );
     } else {
       // Create new document
-      console.log('MONZO API TESTING: No existing tokens, creating new...');
       await adminDb.collection('user_tokens').add(encryptedTokens);
-      console.log('MONZO API TESTING: ✅ Stored new Monzo tokens in Firestore');
     }
-
-    console.log('MONZO API TESTING: ✅ OAuth flow completed successfully!');
 
     // Redirect to success page after successful token exchange
     const successUrl = new URL('/auth/monzo-confirm', request.url);
@@ -201,18 +143,25 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     successUrl.searchParams.append('userId', userId);
 
     return NextResponse.redirect(successUrl.toString());
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('MONZO API TESTING: ❌ ERROR in OAuth callback');
+
+    const errorMessage =
+      error instanceof Error ? error.message : 'Unknown error';
+    const errorDetails = (
+      error as { response?: { data?: unknown; status?: number } }
+    )?.response;
+
     console.error(
       'MONZO API TESTING: Error details:',
-      error.response?.data || error.message
+      errorDetails?.data || errorMessage
     );
-    console.error('MONZO API TESTING: Error status:', error.response?.status);
+    console.error('MONZO API TESTING: Error status:', errorDetails?.status);
 
     return NextResponse.json(
       {
         error: 'Failed to complete authorization',
-        details: error.response?.data || error.message,
+        details: errorDetails?.data || errorMessage,
       },
       { status: 500 }
     );

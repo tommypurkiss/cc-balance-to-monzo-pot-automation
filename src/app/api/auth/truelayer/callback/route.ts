@@ -18,14 +18,6 @@ export async function GET(request: NextRequest) {
   // Extract user ID from state parameter (format: "randomState:userId")
   const userId = state?.includes(':') ? state.split(':')[1] : null;
 
-  console.log('🔍 TrueLayer OAuth Callback - URL:', request.url);
-  console.log('🔍 Callback parameters:', {
-    code: code?.substring(0, 20) + '...',
-    state,
-    error,
-    errorDescription,
-  });
-
   if (error) {
     console.error('❌ TrueLayer authorization error:', error, errorDescription);
     const redirectUrl = new URL('/oauth-callback', request.url);
@@ -75,10 +67,6 @@ export async function GET(request: NextRequest) {
         'TrueLayer credentials not configured in environment variables.'
       );
     }
-
-    console.log('🔄 Exchanging authorization code for tokens...');
-    console.log('🔄 Using client ID:', clientId);
-    console.log('🔄 Using redirect URI:', redirectUri);
 
     // Exchange authorization code for access token
     const tokenResponse = await axios.post<{
@@ -136,18 +124,9 @@ export async function GET(request: NextRequest) {
           actualProvider = userInfo.provider.provider_id;
         }
       }
-    } catch (err) {
-      console.log('Could not fetch user info to determine provider:', err);
+    } catch {
+      // Could not get user info, use default provider
     }
-
-    console.log('✅ Tokens received successfully:', {
-      access_token: access_token.substring(0, 20) + '...',
-      expires_in,
-      refresh_token: refresh_token
-        ? refresh_token.substring(0, 20) + '...'
-        : 'NOT_PROVIDED',
-      actualProvider,
-    });
 
     // Store tokens in Firestore (secure, persistent storage)
     try {
@@ -157,8 +136,6 @@ export async function GET(request: NextRequest) {
         );
         // Still continue with the flow, but tokens won't be stored in Firestore
       } else {
-        console.log('✅ Using user ID from query params:', userId);
-
         await storeEncryptedTokens(
           {
             access_token,
@@ -171,8 +148,6 @@ export async function GET(request: NextRequest) {
           actualProvider
         );
       }
-
-      console.log('✅ Tokens stored securely in Firestore');
     } catch (error) {
       console.warn('⚠️ Failed to store tokens in Firestore:', error);
       // Continue anyway - tokens will be available via URL params for localStorage fallback

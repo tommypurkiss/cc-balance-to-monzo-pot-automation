@@ -82,20 +82,11 @@ export default function DebugPage() {
           try {
             // Only call getAllData if we have sessions
             const data = await clientStorage.getAllData();
-            console.log('🔍 Debug: Checking for Monzo in data:', data);
 
             for (const providerData of Object.values(data)) {
               if (providerData.accounts) {
-                console.log(
-                  '🔍 Debug: Checking accounts:',
-                  providerData.accounts
-                );
                 const monzoAccounts = providerData.accounts.filter(
                   (account) => {
-                    console.log('🔍 Debug: Account provider info:', {
-                      provider: account.provider,
-                      display_name: account.display_name,
-                    });
                     return (
                       account.provider?.provider_id === 'ob-monzo' ||
                       account.provider?.provider_id === 'monzo' ||
@@ -103,7 +94,6 @@ export default function DebugPage() {
                     );
                   }
                 );
-                console.log('🔍 Debug: Found Monzo accounts:', monzoAccounts);
                 if (monzoAccounts.length > 0) {
                   hasMonzo = true;
                   break;
@@ -139,10 +129,6 @@ export default function DebugPage() {
   const handleConnectTrueLayer = () => {
     // Pass the current user ID as a query parameter
     const userId = currentUser?.uid || 'anonymous';
-    console.log('🚀 Starting TrueLayer OAuth flow...');
-    console.log('🔍 Current user:', currentUser);
-    console.log('🔍 User ID being passed:', userId);
-    console.log('🔗 Redirecting to:', `/api/auth/truelayer?userId=${userId}`);
     window.location.href = `/api/auth/truelayer?userId=${userId}`;
   };
 
