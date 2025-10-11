@@ -49,6 +49,21 @@ export interface AccountData {
     provider_id: string;
   };
   update_timestamp: string;
+  // Monzo-specific fields
+  id?: string;
+  description?: string;
+  product_type?: string;
+  account_number?: string;
+  sort_code?: string;
+  closed?: boolean;
+  country_code?: string;
+  legal_entity?: string;
+  owner_type?: string;
+  owners?: Array<{
+    user_id: string;
+    preferred_name: string;
+    preferred_first_name: string;
+  }>;
 }
 
 export interface AccountBalance {
@@ -56,6 +71,15 @@ export interface AccountBalance {
   available: number;
   current: number;
   update_timestamp: string;
+  // Monzo-specific balance fields
+  balance?: number; // Monzo uses 'balance' instead of 'current'
+  spend_today?: number;
+  local_currency?: string;
+  local_exchange_rate?: number;
+  local_spend?: Array<{
+    spend_today: number;
+    currency: string;
+  }>;
 }
 
 class ClientStorageService {
@@ -407,12 +431,17 @@ class ClientStorageService {
     let response: Response;
     if (provider === 'monzo') {
       // Direct Monzo API call
-      response = await fetch(`https://api.monzo.com${endpoint}`, {
+      const url = `https://api.monzo.com${endpoint}`;
+      console.log(`🔍 Making Monzo API call to: ${url}`);
+      response = await fetch(url, {
         headers: {
           Authorization: `Bearer ${session.accessToken}`,
           'Content-Type': 'application/json',
         },
       });
+      console.log(
+        `📡 Monzo API response status: ${response.status} ${response.statusText}`
+      );
     } else {
       // TrueLayer proxy for other providers
       response = await fetch(
@@ -457,12 +486,22 @@ class ClientStorageService {
       throw new Error(error.error || `HTTP ${response.status}`);
     }
 
-    return response.json();
+    const responseData = await response.json();
+    if (provider === 'monzo') {
+      console.log(`📊 Monzo API response data:`, responseData);
+    }
+    return responseData;
   }
 
   // Get cards for a provider
   async getCards(provider: string): Promise<CardData[]> {
     try {
+      if (provider === 'monzo') {
+        // Monzo API doesn't have cards endpoint, return empty array
+        // Monzo accounts are handled separately in getAccounts
+        return [];
+      }
+
       const data = await this.apiCall<{ results: CardData[] }>(
         '/data/v1/cards',
         provider
@@ -479,6 +518,11 @@ class ClientStorageService {
     provider: string
   ): Promise<CardBalance | null> {
     try {
+      if (provider === 'monzo') {
+        // Monzo doesn't have cards, return null
+        return null;
+      }
+
       const data = await this.apiCall<{ results: CardBalance[] }>(
         `/data/v1/cards/${cardId}/balance`,
         provider
@@ -492,12 +536,25 @@ class ClientStorageService {
   // Get accounts for a provider
   async getAccounts(provider: string): Promise<AccountData[]> {
     try {
+      if (provider === 'monzo') {
+        // Use Monzo's direct API endpoint
+        console.log(`🔍 Fetching Monzo accounts...`);
+        const data = await this.apiCall<{ accounts: AccountData[] }>(
+          '/accounts',
+          provider
+        );
+        console.log(`📊 Monzo accounts data:`, data);
+        console.log(`📊 Monzo accounts array:`, data.accounts);
+        return data.accounts || [];
+      }
+
       const data = await this.apiCall<{ results: AccountData[] }>(
         '/data/v1/accounts',
         provider
       );
       return data.results || [];
     } catch (error) {
+      console.log(`❌ Error fetching accounts for ${provider}:`, error);
       throw error;
     }
   }
@@ -508,12 +565,27 @@ class ClientStorageService {
     provider: string
   ): Promise<AccountBalance | null> {
     try {
+      if (provider === 'monzo') {
+        // Use Monzo's direct API endpoint
+        console.log(`🔍 Fetching Monzo balance for account: ${accountId}`);
+        const data = await this.apiCall<AccountBalance>(
+          `/balance?account_id=${accountId}`,
+          provider
+        );
+        console.log(`💰 Monzo balance data:`, data);
+        return data || null;
+      }
+
       const data = await this.apiCall<{ results: AccountBalance[] }>(
         `/data/v1/accounts/${accountId}/balance`,
         provider
       );
       return data.results?.[0] || null;
     } catch (error) {
+      console.log(
+        `❌ Error fetching balance for ${provider} account ${accountId}:`,
+        error
+      );
       throw error;
     }
   }
@@ -583,15 +655,24 @@ class ClientStorageService {
           for (const account of accounts) {
             // console.log('account', account);
             try {
+              // Use the correct account ID field for Monzo vs TrueLayer
+              const accountId = account.id || account.account_id;
+              if (!accountId) {
+                console.warn(`No account ID found for account:`, account);
+                allData[session.provider].accounts.push(account);
+                hasAnyData = true;
+                continue;
+              }
+
               const balance = await this.getAccountBalance(
-                account.account_id,
+                accountId,
                 session.provider
               );
               allData[session.provider].accounts.push({ ...account, balance });
               hasAnyData = true;
             } catch (error) {
               console.warn(
-                `Failed to get balance for account ${account.account_id}:`,
+                `Failed to get balance for account ${account.id || account.account_id}:`,
                 error
               );
               allData[session.provider].accounts.push(account);
