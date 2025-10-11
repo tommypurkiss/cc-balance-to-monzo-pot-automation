@@ -79,7 +79,7 @@ export const scheduledPotTransfer = onSchedule(
       truelayerClientSecret.value()
     );
 
-    const monzoService = new MonzoService(truelayerService);
+    const monzoService = new MonzoService();
     console.log('📅 Scheduled time:', event.scheduleTime);
     console.log('📝 Job name:', event.jobName);
 
@@ -152,20 +152,10 @@ export const scheduledPotTransfer = onSchedule(
           const hasMonzoToken = userTokens.some(
             (token) => !token.deleted && token.provider === 'monzo'
           );
-          const hasObMonzoToken = userTokens.some(
-            (token) => !token.deleted && token.provider === 'ob-monzo'
-          );
 
           if (!hasMonzoToken) {
             console.log(
-              '  ⚠️ No direct Monzo token found (needed for transfers), skipping'
-            );
-            continue;
-          }
-
-          if (!hasObMonzoToken) {
-            console.log(
-              '  ⚠️ No ob-monzo token found (needed for reading data), skipping'
+              '  ⚠️ No direct Monzo token found (needed for all operations), skipping'
             );
             continue;
           }
@@ -200,33 +190,7 @@ export const scheduledPotTransfer = onSchedule(
             `  💳 Total credit card balance: £${totalCreditCardBalance.toFixed(2)} (from ${totalCardsFound} cards)`
           );
 
-          // Get Monzo accounts using ob-monzo token
-          const monzoAccounts = await monzoService.getMonzoAccounts(
-            userId,
-            'ob-monzo'
-          );
-
-          if (!monzoAccounts.mainAccount) {
-            console.log('  ⚠️ No Monzo main account found, skipping user');
-            continue;
-          }
-
-          const mainAccountBalance =
-            monzoAccounts.mainAccount.balance?.available || 0;
-          console.log(
-            `  💰 Main account balance: £${mainAccountBalance.toFixed(2)}`
-          );
-
-          // Check minimum bank balance threshold
-          if (mainAccountBalance <= rule.minimumBankBalance) {
-            console.log(
-              `  ⚠️ MINIMUM BALANCE CHECK FAILED: Main account balance (£${mainAccountBalance.toFixed(2)}) is at or below minimum threshold (£${(rule.minimumBankBalance / 100).toFixed(2)})`
-            );
-            console.log('  💡 Skipping transfer to maintain minimum balance');
-            continue;
-          }
-
-          // Get Monzo OAuth access token for transfers
+          // Get Monzo OAuth access token for all operations
           const monzoAccessToken = await monzoService.getMonzoAccessToken(
             userId,
             monzoClientId.value(),
@@ -240,20 +204,45 @@ export const scheduledPotTransfer = onSchedule(
             continue;
           }
 
-          // Get the target pot using Monzo API
-          const targetPot = await monzoService.getPotById(
+          // Get main account balance using the account ID from the automation rule
+          const mainAccountBalance = await monzoService.getAccountBalance(
             monzoAccessToken,
-            rule.targetPot.potId
+            rule.sourceAccount.accountId
           );
 
-          if (!targetPot) {
+          if (mainAccountBalance === null) {
             console.log(
-              `  ⚠️ Target pot "${rule.targetPot.potName}" not found via Monzo API`
+              '  ⚠️ Could not fetch main account balance, skipping user'
             );
             continue;
           }
 
-          const currentPotBalance = targetPot.balance || 0;
+          console.log(
+            `  💰 Main account balance: £${mainAccountBalance.toFixed(2)}`
+          );
+
+          // Check minimum bank balance threshold
+          if (mainAccountBalance <= rule.minimumBankBalance) {
+            console.log(
+              `  ⚠️ MINIMUM BALANCE CHECK FAILED: Main account balance (£${mainAccountBalance.toFixed(2)}) is at or below minimum threshold (£${(rule.minimumBankBalance / 100).toFixed(2)})`
+            );
+            console.log('  💡 Skipping transfer to maintain minimum balance');
+            continue;
+          }
+
+          // Get the target pot balance using the pot ID from the automation rule
+          const currentPotBalance = await monzoService.getPotBalance(
+            monzoAccessToken,
+            rule.targetPot.potId
+          );
+
+          if (currentPotBalance === null) {
+            console.log(
+              `  ⚠️ Could not fetch target pot "${rule.targetPot.potName}" balance, skipping`
+            );
+            continue;
+          }
+
           console.log(
             `  🏦 Current pot balance: £${(currentPotBalance / 100).toFixed(2)}`
           );
@@ -294,7 +283,7 @@ export const scheduledPotTransfer = onSchedule(
           console.log(`  🚀 Executing transfer...`);
           await monzoService.transferToPot(
             monzoAccessToken,
-            monzoAccounts.mainAccount.account_id,
+            rule.sourceAccount.accountId,
             rule.targetPot.potId,
             transferAmount
           );
