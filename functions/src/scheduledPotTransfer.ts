@@ -125,6 +125,11 @@ export const scheduledPotTransfer = onSchedule(
           `  🎯 Target pot: ${rule.targetPot.potName} (${rule.targetPot.potId})`
         );
         console.log(`  💳 Credit cards: ${rule.creditCards.length} selected`);
+        rule.creditCards.forEach((card, index) => {
+          console.log(
+            `    ${index + 1}. ${card.displayName} (Provider: ${card.provider}, Account ID: ${card.accountId}, Last 4: ****${card.partialCardNumber})`
+          );
+        });
         console.log(
           `  💰 Minimum bank balance: £${(rule.minimumBankBalance / 100).toFixed(2)}`
         );
@@ -164,25 +169,47 @@ export const scheduledPotTransfer = onSchedule(
           let totalCreditCardBalance = 0;
           let totalCardsFound = 0;
 
+          console.log(
+            `  🔍 Processing ${rule.creditCards.length} credit cards...`
+          );
+
           for (const card of rule.creditCards) {
+            console.log(
+              `  📋 Processing card: ${card.displayName} (Provider: ${card.provider}, Account ID: ${card.accountId})`
+            );
+
             try {
+              console.log(
+                `  🔄 Attempting to get balance for ${card.displayName}...`
+              );
               const balance = await truelayerService.getCardBalance(
                 userId,
                 card.accountId,
                 card.provider
               );
+
+              console.log(
+                `  📊 Balance response for ${card.displayName}:`,
+                balance
+              );
+
               if (balance) {
                 console.log(
-                  `    - ${card.displayName} (****${card.partialCardNumber}): ${balance.currency} ${balance.current}`
+                  `    ✅ ${card.displayName} (****${card.partialCardNumber}): ${balance.currency} ${balance.current}`
                 );
                 totalCreditCardBalance += balance.current;
                 totalCardsFound++;
+              } else {
+                console.log(
+                  `    ⚠️ No balance data returned for ${card.displayName}`
+                );
               }
             } catch (cardError: any) {
               console.log(
-                `    ⚠️ Error getting balance for ${card.displayName}:`,
+                `    ❌ Error getting balance for ${card.displayName}:`,
                 cardError.message
               );
+              console.log(`    🔍 Full error details:`, cardError);
             }
           }
 

@@ -33,30 +33,60 @@ export class TrueLayerService {
     userId: string,
     provider: string = 'truelayer'
   ): Promise<string> {
+    console.log(
+      `🔍 getValidAccessToken called for userId: ${userId}, provider: ${provider}`
+    );
+
     const encryptedTokens = await getEncryptedTokens(userId, provider);
     if (!encryptedTokens) {
+      console.error(
+        `❌ No encrypted tokens found for user ${userId}, provider: ${provider}`
+      );
       throw new Error(`No tokens found for user ${userId}`);
     }
+    console.log(`✅ Encrypted tokens found for ${provider}`);
 
     const tokens = await decryptTokens(encryptedTokens);
+    console.log(
+      `🔓 Tokens decrypted for ${provider}, expires_at: ${new Date(tokens.expires_at).toISOString()}`
+    );
 
     // Check if token is expired
-    if (Date.now() >= tokens.expires_at) {
-      console.log(`Token expired for user ${userId}, refreshing...`);
-      await refreshTokens(userId, provider, this.clientId, this.clientSecret);
+    const now = Date.now();
+    const isExpired = now >= tokens.expires_at;
+    console.log(
+      `⏰ Token expiry check: now=${now}, expires_at=${tokens.expires_at}, isExpired=${isExpired}`
+    );
 
-      // Get the refreshed tokens
-      const refreshedEncryptedTokens = await getEncryptedTokens(
-        userId,
-        provider
+    if (isExpired) {
+      console.log(
+        `🔄 Token expired for user ${userId}, provider: ${provider}, refreshing...`
       );
-      if (!refreshedEncryptedTokens) {
-        throw new Error('Failed to get refreshed tokens');
+      try {
+        await refreshTokens(userId, provider, this.clientId, this.clientSecret);
+        console.log(`✅ Token refresh successful for ${provider}`);
+
+        // Get the refreshed tokens
+        const refreshedEncryptedTokens = await getEncryptedTokens(
+          userId,
+          provider
+        );
+        if (!refreshedEncryptedTokens) {
+          console.error(
+            `❌ Failed to get refreshed encrypted tokens for ${provider}`
+          );
+          throw new Error('Failed to get refreshed tokens');
+        }
+        const refreshedTokens = await decryptTokens(refreshedEncryptedTokens);
+        console.log(`✅ Using refreshed access token for ${provider}`);
+        return refreshedTokens.access_token;
+      } catch (refreshError) {
+        console.error(`❌ Token refresh failed for ${provider}:`, refreshError);
+        throw refreshError;
       }
-      const refreshedTokens = await decryptTokens(refreshedEncryptedTokens);
-      return refreshedTokens.access_token;
     }
 
+    console.log(`✅ Using existing valid access token for ${provider}`);
     return tokens.access_token;
   }
 
@@ -92,25 +122,51 @@ export class TrueLayerService {
     accountId: string,
     provider: string = 'truelayer'
   ): Promise<CardBalance | null> {
-    const accessToken = await this.getValidAccessToken(userId, provider);
+    console.log(
+      `🔍 TrueLayerService.getCardBalance called for userId: ${userId}, accountId: ${accountId}, provider: ${provider}`
+    );
 
-    const response = await fetch(
-      `https://api.truelayer.com/data/v1/cards/${accountId}/balance`,
-      {
+    try {
+      console.log(`🔑 Getting valid access token for provider: ${provider}`);
+      const accessToken = await this.getValidAccessToken(userId, provider);
+      console.log(
+        `✅ Access token obtained for ${provider} (length: ${accessToken.length})`
+      );
+
+      const apiUrl = `https://api.truelayer.com/data/v1/cards/${accountId}/balance`;
+      console.log(`🌐 Making API call to: ${apiUrl}`);
+
+      const response = await fetch(apiUrl, {
         headers: {
           Authorization: `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
         },
+      });
+
+      console.log(
+        `📡 API response status: ${response.status} ${response.statusText}`
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(
+          `❌ Failed to fetch balance for card ${accountId}: ${response.status} ${response.statusText}`
+        );
+        console.error(`❌ Error response body: ${errorText}`);
+        return null;
       }
-    );
 
-    if (!response.ok) {
-      console.error(`Failed to fetch balance for card ${accountId}`);
-      return null;
+      const data = await response.json();
+      console.log(`📊 Raw API response data:`, JSON.stringify(data, null, 2));
+
+      const result = data.results?.[0] || null;
+      console.log(`📋 Processed balance result:`, result);
+
+      return result;
+    } catch (error) {
+      console.error(`💥 Exception in getCardBalance for ${provider}:`, error);
+      throw error;
     }
-
-    const data = await response.json();
-    return data.results?.[0] || null;
   }
 
   /**
