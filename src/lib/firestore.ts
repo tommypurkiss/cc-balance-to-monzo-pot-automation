@@ -152,11 +152,14 @@ export async function decryptTokens(encryptedTokens: EncryptedTokens): Promise<{
   }
 }
 
-export async function refreshTokens(userId: string): Promise<EncryptedTokens> {
+export async function refreshTokens(
+  userId: string,
+  provider: string = 'truelayer'
+): Promise<EncryptedTokens> {
   try {
-    const encryptedTokens = await getEncryptedTokens(userId);
+    const encryptedTokens = await getEncryptedTokens(userId, provider);
     if (!encryptedTokens) {
-      throw new Error('No tokens found for user');
+      throw new Error(`No tokens found for user with provider: ${provider}`);
     }
 
     const { refresh_token } = await decryptTokens(encryptedTokens);
@@ -182,7 +185,7 @@ export async function refreshTokens(userId: string): Promise<EncryptedTokens> {
     const newTokens: TrueLayerTokenResponse = await response.json();
 
     // Store the new tokens
-    await storeEncryptedTokens(newTokens, userId);
+    await storeEncryptedTokens(newTokens, userId, provider);
 
     return {
       ...encryptedTokens,

@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
-  getEncryptedTokens,
+  getAllEncryptedTokensForUser,
   decryptTokens,
   refreshTokens,
 } from '@/lib/firestore';
-import { sessionStorage } from '@/lib/sessionStorage';
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
@@ -18,45 +17,57 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    // Try to get token from session storage first (faster and avoids Firestore issues)
-    let access_token = sessionStorage.getValidToken(userId);
+    // Get all tokens from Firestore
+    const allEncryptedTokens = await getAllEncryptedTokensForUser(userId);
+    if (!allEncryptedTokens || allEncryptedTokens.length === 0) {
+      return NextResponse.json(
+        {
+          error: 'No tokens found for user. Please connect TrueLayer first.',
+        },
+        { status: 404 }
+      );
+    }
 
-    if (access_token) {
-    } else {
-      // Fall back to Firestore
-      const encryptedTokens = await getEncryptedTokens(userId);
-      if (!encryptedTokens) {
+    // Find the first available TrueLayer token (not Monzo)
+    const truelayerToken = allEncryptedTokens.find(
+      (token: any) => token.provider !== 'monzo' && !token.deleted
+    );
+
+    if (!truelayerToken) {
+      return NextResponse.json(
+        {
+          error:
+            'No TrueLayer tokens found. Please connect your bank accounts first.',
+        },
+        { status: 404 }
+      );
+    }
+
+    // Check if tokens are expired and refresh if needed
+    const { expires_at, refresh_token } = await decryptTokens(truelayerToken);
+    let access_token: string;
+
+    if (Date.now() >= expires_at) {
+      if (refresh_token && refresh_token.trim() !== '') {
+        const refreshedTokens = await refreshTokens(
+          userId,
+          truelayerToken.provider
+        );
+        const { access_token: newToken } = await decryptTokens(refreshedTokens);
+        access_token = newToken;
+      } else {
         return NextResponse.json(
           {
-            error: 'No tokens found for user. Please connect TrueLayer first.',
+            error:
+              'Access token expired and no refresh token available. Please reconnect your account.',
           },
-          { status: 404 }
+          { status: 401 }
         );
       }
-
-      // Check if tokens are expired and refresh if needed
-      const { expires_at, refresh_token } =
-        await decryptTokens(encryptedTokens);
-      if (Date.now() >= expires_at) {
-        if (refresh_token && refresh_token.trim() !== '') {
-          const refreshedTokens = await refreshTokens(userId);
-          const { access_token: newToken } =
-            await decryptTokens(refreshedTokens);
-          access_token = newToken;
-        } else {
-          return NextResponse.json(
-            {
-              error:
-                'Access token expired and no refresh token available. Please reconnect your account.',
-            },
-            { status: 401 }
-          );
-        }
-      } else {
-        const { access_token: firestoreToken } =
-          await decryptTokens(encryptedTokens);
-        access_token = firestoreToken;
-      }
+    } else {
+      const { access_token: firestoreToken } =
+        await decryptTokens(truelayerToken);
+      access_token = firestoreToken;
     }
 
     // Fetch cards from TrueLayer (try cards endpoint first)
