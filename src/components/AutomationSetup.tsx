@@ -351,7 +351,7 @@ export default function AutomationSetup() {
                   {existingRule.creditCards.length} selected
                 </p>
                 <div className="text-xs text-gray-300 mt-2 space-y-1">
-                  {existingRule.creditCards.map((card, index) => (
+                  {existingRule.creditCards.map((card) => (
                     <div
                       key={card.accountId}
                       className="bg-gray-700/50 p-2 rounded"
