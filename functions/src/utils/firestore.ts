@@ -153,7 +153,7 @@ export async function refreshTokens(
       throw new Error('No tokens found for user');
     }
 
-    const { refresh_token } = await decryptTokens(encryptedTokens);
+    const { refresh_token, scope } = await decryptTokens(encryptedTokens);
 
     // Check if refresh_token exists
     if (!refresh_token) {
@@ -175,24 +175,40 @@ export async function refreshTokens(
     console.log(`🔄 Refreshing ${provider} tokens...`);
 
     // Exchange refresh token for new access token
+    const refreshParams: any = {
+      grant_type: 'refresh_token',
+      client_id: clientId,
+      client_secret: clientSecret,
+      refresh_token: refresh_token,
+    };
+
+    // Add scope for TrueLayer (required for refresh token requests)
+    if (provider !== 'monzo' && scope) {
+      refreshParams.scope = scope;
+    }
+
     const response = await fetch(tokenEndpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
-      body: new URLSearchParams({
-        grant_type: 'refresh_token',
-        client_id: clientId,
-        client_secret: clientSecret,
-        refresh_token: refresh_token,
-      }),
+      body: new URLSearchParams(refreshParams),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`Failed to refresh ${provider} tokens:`, errorText);
+      console.error(
+        `Response status: ${response.status} ${response.statusText}`
+      );
+      console.error(`Request params:`, {
+        grant_type: refreshParams.grant_type,
+        client_id: refreshParams.client_id,
+        scope: refreshParams.scope,
+        refresh_token_length: refreshParams.refresh_token?.length || 0,
+      });
       throw new Error(
-        `Failed to refresh ${provider} tokens: ${response.status}`
+        `Failed to refresh ${provider} tokens: ${response.status} - ${errorText}`
       );
     }
 
