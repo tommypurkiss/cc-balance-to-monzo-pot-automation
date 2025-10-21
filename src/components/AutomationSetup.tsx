@@ -311,8 +311,8 @@ export default function AutomationSetup() {
   };
 
   return (
-    <div className="border border-orange-600 bg-gradient-to-r from-orange-900/20 to-yellow-900/20 p-6 rounded-lg">
-      <h2 className="text-xl font-semibold text-orange-400 mb-4 flex items-center">
+    <div className="border border-orange-600 bg-gradient-to-r from-orange-900/20 to-yellow-900/20 p-4 sm:p-6 rounded-lg">
+      <h2 className="text-lg sm:text-xl font-semibold text-orange-400 mb-4 flex items-center">
         <span className="mr-2">🎯</span>
         Step 3: Automation Rules
       </h2>
@@ -329,7 +329,7 @@ export default function AutomationSetup() {
         </div>
       )}
 
-      {/* Existing Rules Section */}
+      {/* Mobile-optimized Existing Rules Section */}
       {existingRule && (
         <div className="mb-6 p-4 bg-green-900/20 border border-green-500/30 rounded-lg">
           <h3 className="text-lg font-medium text-green-400 mb-3 flex items-center">
@@ -338,55 +338,59 @@ export default function AutomationSetup() {
           </h3>
 
           <div className="bg-gray-800/50 border border-green-500/30 p-4 rounded-lg mb-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <div className="space-y-4">
               <div>
-                <p className="text-gray-400">Target Pot</p>
-                <p className="font-semibold text-white">
+                <p className="text-gray-400 text-sm">Target Pot</p>
+                <p className="font-semibold text-white text-lg">
                   {existingRule.targetPot.potName}
                 </p>
               </div>
               <div>
-                <p className="text-gray-400">Credit Cards</p>
+                <p className="text-gray-400 text-sm">Credit Cards</p>
                 <p className="font-semibold text-white">
                   {existingRule.creditCards.length} selected
                 </p>
-                <div className="text-xs text-gray-300 mt-1">
-                  {existingRule.creditCards.map((card, index) => (
-                    <span key={card.accountId}>
+                <div className="text-xs text-gray-300 mt-2 space-y-1">
+                  {existingRule.creditCards.map((card) => (
+                    <div
+                      key={card.accountId}
+                      className="bg-gray-700/50 p-2 rounded"
+                    >
                       {card.displayName} (****{card.partialCardNumber})
-                      {index < existingRule.creditCards.length - 1 && ', '}
-                    </span>
+                    </div>
                   ))}
                 </div>
               </div>
-              <div>
-                <p className="text-gray-400">Minimum Bank Balance</p>
-                <p className="font-semibold text-white">
+              <div className="flex justify-between items-center">
+                <span className="text-gray-400 text-sm">
+                  Minimum Bank Balance
+                </span>
+                <span className="font-semibold text-white">
                   {formatCurrency(existingRule.minimumBankBalance, 'GBP', true)}
-                </p>
+                </span>
               </div>
-              <div>
-                <p className="text-gray-400">Status</p>
-                <p
+              <div className="flex justify-between items-center">
+                <span className="text-gray-400 text-sm">Status</span>
+                <span
                   className={`font-semibold ${existingRule.isActive ? 'text-green-400' : 'text-red-400'}`}
                 >
                   {existingRule.isActive ? 'Active' : 'Inactive'}
-                </p>
+                </span>
               </div>
             </div>
           </div>
 
-          <div className="flex gap-3">
+          <div className="flex flex-col sm:flex-row gap-3">
             <button
               onClick={() => setStep(2)}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-medium"
+              className="bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 font-medium w-full sm:w-auto"
             >
               Edit Rule
             </button>
             <button
               onClick={handleDeleteAutomation}
               disabled={loading}
-              className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 font-medium disabled:opacity-50"
+              className="bg-red-600 text-white px-4 py-3 rounded-lg hover:bg-red-700 font-medium disabled:opacity-50 w-full sm:w-auto"
             >
               {loading ? 'Deleting...' : 'Delete Rule'}
             </button>
@@ -402,13 +406,13 @@ export default function AutomationSetup() {
             ? 'Create Additional Rule'
             : 'Set Up New Automation Rule'}
         </h3>
-        {/* Step 1: Credit Card Selection */}
+        {/* Step 1: Mobile-optimized Credit Card Selection */}
         {step === 1 && (
           <div>
             <h3 className="text-lg font-medium text-white mb-4">
               Select Credit Cards to Monitor
             </h3>
-            <p className="text-gray-300 text-sm mb-4">
+            <p className="text-gray-300 text-sm mb-4 leading-relaxed">
               Choose which credit cards should be included in the automation.
               The system will transfer funds based on the total balance of
               selected cards.
@@ -417,7 +421,7 @@ export default function AutomationSetup() {
             <div className="mb-4">
               <button
                 onClick={handleSelectAllCards}
-                className="bg-gray-600 text-white px-3 py-1 rounded text-sm hover:bg-gray-700"
+                className="bg-gray-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-gray-700 w-full sm:w-auto"
               >
                 {selectedCards.length === uniqueCards.length
                   ? 'Deselect All'
@@ -425,33 +429,33 @@ export default function AutomationSetup() {
               </button>
             </div>
 
-            <div className="space-y-2 max-h-60 overflow-y-auto">
+            <div className="space-y-3 max-h-80 overflow-y-auto">
               {uniqueCards.map((card) => (
                 <label
                   key={card.account_id}
-                  className="flex items-center p-3 bg-gray-700 rounded border border-gray-600 hover:bg-gray-600 cursor-pointer"
+                  className="flex items-start p-4 bg-gray-700/50 rounded-lg border border-gray-600 hover:bg-gray-600 cursor-pointer"
                 >
                   <input
                     type="checkbox"
                     checked={selectedCards.includes(card.account_id)}
                     onChange={() => handleCardToggle(card.account_id)}
-                    className="mr-3"
+                    className="mr-4 mt-1 w-4 h-4"
                   />
                   <div className="flex-grow">
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium text-white">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-2 gap-2">
+                      <span className="font-medium text-white text-lg">
                         {card.display_name}
                       </span>
-                      <span className="text-xs text-gray-500 bg-gray-600 px-2 py-1 rounded">
+                      <span className="text-xs text-gray-500 bg-gray-600 px-2 py-1 rounded w-fit">
                         {getProviderDisplayName(card.provider)}
                       </span>
                     </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-400">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                      <span className="text-gray-400 text-sm">
                         ****{card.partial_card_number}
                       </span>
                       {card.balance && (
-                        <span className="font-semibold text-white">
+                        <span className="font-semibold text-white text-lg">
                           {formatCurrency(
                             card.balance.current,
                             card.balance.currency
@@ -464,11 +468,11 @@ export default function AutomationSetup() {
               ))}
             </div>
 
-            <div className="flex justify-end mt-4">
+            <div className="flex justify-end mt-6">
               <button
                 onClick={handleNext}
                 disabled={selectedCards.length === 0}
-                className="bg-orange-600 text-white px-6 py-2 rounded-lg hover:bg-orange-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                className="bg-orange-600 text-white px-6 py-3 rounded-lg hover:bg-orange-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto"
               >
                 Next: Choose Pot
               </button>
@@ -529,11 +533,11 @@ export default function AutomationSetup() {
                 </button>
               </div>
             ) : (
-              <div className="space-y-2 max-h-60 overflow-y-auto">
+              <div className="space-y-3 max-h-80 overflow-y-auto">
                 {pots.map((pot) => (
                   <label
                     key={pot.id}
-                    className="flex items-center p-3 bg-gray-700 rounded border border-gray-600 hover:bg-gray-600 cursor-pointer"
+                    className="flex items-start p-4 bg-gray-700/50 rounded-lg border border-gray-600 hover:bg-gray-600 cursor-pointer"
                   >
                     <input
                       type="radio"
@@ -541,19 +545,19 @@ export default function AutomationSetup() {
                       value={pot.id}
                       checked={selectedPot === pot.id}
                       onChange={(e) => setSelectedPot(e.target.value)}
-                      className="mr-3"
+                      className="mr-4 mt-1 w-4 h-4"
                     />
                     <div className="flex-grow">
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium text-white">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-2 gap-2">
+                        <span className="font-medium text-white text-lg">
                           {pot.name}
                         </span>
-                        <span className="text-xs text-gray-500 bg-gray-600 px-2 py-1 rounded">
+                        <span className="text-xs text-gray-500 bg-gray-600 px-2 py-1 rounded w-fit">
                           {pot.type}
                         </span>
                       </div>
                       <div className="text-sm">
-                        <span className="font-semibold text-white">
+                        <span className="font-semibold text-white text-lg">
                           {formatCurrency(pot.balance, pot.currency, true)}
                         </span>
                       </div>
@@ -563,17 +567,17 @@ export default function AutomationSetup() {
               </div>
             )}
 
-            <div className="flex justify-between mt-4">
+            <div className="flex flex-col sm:flex-row justify-between gap-3 mt-6">
               <button
                 onClick={handleBack}
-                className="bg-gray-600 text-white px-6 py-2 rounded-lg hover:bg-gray-700 font-medium"
+                className="bg-gray-600 text-white px-6 py-3 rounded-lg hover:bg-gray-700 font-medium w-full sm:w-auto"
               >
                 Back
               </button>
               <button
                 onClick={handleNext}
                 disabled={!selectedPot}
-                className="bg-orange-600 text-white px-6 py-2 rounded-lg hover:bg-orange-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                className="bg-orange-600 text-white px-6 py-3 rounded-lg hover:bg-orange-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto"
               >
                 Next: Safety Settings
               </button>
@@ -617,16 +621,16 @@ export default function AutomationSetup() {
               </p>
             </div>
 
-            <div className="flex justify-between mt-4">
+            <div className="flex flex-col sm:flex-row justify-between gap-3 mt-6">
               <button
                 onClick={handleBack}
-                className="bg-gray-600 text-white px-6 py-2 rounded-lg hover:bg-gray-700 font-medium"
+                className="bg-gray-600 text-white px-6 py-3 rounded-lg hover:bg-gray-700 font-medium w-full sm:w-auto"
               >
                 Back
               </button>
               <button
                 onClick={handleNext}
-                className="bg-orange-600 text-white px-6 py-2 rounded-lg hover:bg-orange-700 font-medium"
+                className="bg-orange-600 text-white px-6 py-3 rounded-lg hover:bg-orange-700 font-medium w-full sm:w-auto"
               >
                 Next: Review
               </button>
@@ -644,57 +648,62 @@ export default function AutomationSetup() {
               Please review your automation settings before saving.
             </p>
 
-            <div className="bg-gray-700 p-4 rounded border border-gray-600 space-y-3">
+            <div className="bg-gray-700/50 p-4 rounded-lg border border-gray-600 space-y-4">
               <div>
                 <p className="text-gray-400 text-sm">Credit Cards Selected</p>
-                <p className="font-semibold text-white">
+                <p className="font-semibold text-white text-lg">
                   {selectedCards.length} card
                   {selectedCards.length !== 1 ? 's' : ''}
                 </p>
-                <div className="text-xs text-gray-300 mt-1">
+                <div className="text-xs text-gray-300 mt-2 space-y-1">
                   {uniqueCards
                     .filter((card) => selectedCards.includes(card.account_id))
-                    .map(
-                      (card) =>
-                        `${card.display_name} (****${card.partial_card_number})`
-                    )
-                    .join(', ')}
+                    .map((card) => (
+                      <div
+                        key={card.account_id}
+                        className="bg-gray-600/50 p-2 rounded"
+                      >
+                        {card.display_name} (****{card.partial_card_number})
+                      </div>
+                    ))}
                 </div>
               </div>
 
-              <div>
-                <p className="text-gray-400 text-sm">Target Pot</p>
-                <p className="font-semibold text-white">
+              <div className="flex justify-between items-center">
+                <span className="text-gray-400 text-sm">Target Pot</span>
+                <span className="font-semibold text-white">
                   {pots.find((pot) => pot.id === selectedPot)?.name}
-                </p>
+                </span>
               </div>
 
-              <div>
-                <p className="text-gray-400 text-sm">Minimum Bank Balance</p>
-                <p className="font-semibold text-white">
+              <div className="flex justify-between items-center">
+                <span className="text-gray-400 text-sm">
+                  Minimum Bank Balance
+                </span>
+                <span className="font-semibold text-white">
                   {formatCurrency(minimumBankBalance, 'GBP', true)}
-                </p>
+                </span>
               </div>
 
-              <div>
-                <p className="text-gray-400 text-sm">Transfer Type</p>
-                <p className="font-semibold text-white">
+              <div className="flex justify-between items-center">
+                <span className="text-gray-400 text-sm">Transfer Type</span>
+                <span className="font-semibold text-white">
                   Full Credit Card Balance
-                </p>
+                </span>
               </div>
             </div>
 
-            <div className="flex justify-between mt-4">
+            <div className="flex flex-col sm:flex-row justify-between gap-3 mt-6">
               <button
                 onClick={handleBack}
-                className="bg-gray-600 text-white px-6 py-2 rounded-lg hover:bg-gray-700 font-medium"
+                className="bg-gray-600 text-white px-6 py-3 rounded-lg hover:bg-gray-700 font-medium w-full sm:w-auto"
               >
                 Back
               </button>
               <button
                 onClick={handleSaveAutomation}
                 disabled={loading}
-                className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 font-medium disabled:opacity-50"
+                className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 font-medium disabled:opacity-50 w-full sm:w-auto"
               >
                 {loading ? 'Saving...' : 'Save Automation Rule'}
               </button>

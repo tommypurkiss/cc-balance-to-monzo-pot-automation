@@ -326,26 +326,28 @@ export default function TrueLayerDashboard() {
   const step3Complete = false; // Will be implemented later
 
   return (
-    <div className="space-y-6">
-      {/* Header with refresh button */}
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-white">Financial Dashboard</h1>
+    <div className="space-y-4">
+      {/* Mobile-optimized header */}
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+        <h1 className="text-xl sm:text-2xl font-bold text-white">
+          Financial Dashboard
+        </h1>
         <button
           onClick={() => void loadData(true)}
           disabled={loading}
-          className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+          className="bg-green-600 text-white px-4 py-3 rounded-lg hover:bg-green-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base w-full sm:w-auto"
         >
           {loading ? 'Refreshing...' : '🔄 Refresh Data'}
         </button>
       </div>
 
-      {/* Progress Indicator */}
-      <div className="bg-gray-800/50 border border-gray-600 rounded-lg p-6">
+      {/* Mobile-optimized Progress Indicator */}
+      <div className="bg-gray-800/50 border border-gray-600 rounded-lg p-4 sm:p-6">
         <h2 className="text-lg font-semibold text-white mb-4 flex items-center">
           <span className="mr-2">🎯</span>
           Setup Progress
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="space-y-3 sm:space-y-0 sm:grid sm:grid-cols-3 sm:gap-4">
           {/* Step 1 */}
           <div
             className={`flex items-center p-3 rounded-lg border ${
@@ -532,231 +534,223 @@ export default function TrueLayerDashboard() {
           const isSavingsExpanded = savingsExpanded['monzo'] || false;
 
           return (
-            <div className="border border-purple-600 bg-gradient-to-r from-purple-900/20 to-blue-900/20 p-6 rounded-lg">
-              <h2 className="text-xl font-semibold text-purple-400 mb-4 flex items-center">
-                <span className="mr-2">🏦</span>
-                Monzo Account (Direct)
-              </h2>
-
-              <div className="border border-gray-600 bg-gray-700 p-4 rounded-lg">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-lg font-semibold text-white">Monzo</h3>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleLogout('monzo')}
-                      className="bg-gray-500 text-white px-2 py-1 rounded text-xs hover:bg-gray-600 font-medium"
-                      title="Clear session (tokens remain saved)"
-                    >
-                      Logout
-                    </button>
-                    <button
-                      onClick={() => handleDisconnect('monzo')}
-                      className="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600 font-medium"
-                      title="Permanently disconnect account"
-                    >
-                      Disconnect
-                    </button>
-                  </div>
+            <div className="border border-purple-600 bg-gradient-to-r from-purple-900/20 to-blue-900/20 p-4 sm:p-6 rounded-lg">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 gap-3">
+                <h2 className="text-lg sm:text-xl font-semibold text-purple-400 flex items-center">
+                  <span className="mr-2">🏦</span>
+                  Monzo Account (Direct)
+                </h2>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleLogout('monzo')}
+                    className="bg-gray-500 text-white px-3 py-2 rounded text-sm hover:bg-gray-600 font-medium"
+                    title="Clear session (tokens remain saved)"
+                  >
+                    Logout
+                  </button>
+                  <button
+                    onClick={() => handleDisconnect('monzo')}
+                    className="bg-red-500 text-white px-3 py-2 rounded text-sm hover:bg-red-600 font-medium"
+                    title="Permanently disconnect account"
+                  >
+                    Disconnect
+                  </button>
                 </div>
+              </div>
 
-                {/* Monzo Automation Status */}
-                <div
-                  className={`mb-4 p-3 border rounded ${
-                    monzoAutomationEnabled['monzo']
-                      ? 'bg-green-900/30 border-green-600'
-                      : 'bg-blue-900/30 border-blue-600'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4
-                        className={`text-sm font-semibold mb-1 ${
-                          hasMonzoAutomation
-                            ? 'text-green-300'
-                            : 'text-blue-300'
-                        }`}
-                      >
-                        {hasMonzoAutomation
-                          ? '✅ Automated Pot Transfers Enabled'
-                          : '🤖 Automated Pot Transfers'}
-                      </h4>
-                      <p className="text-xs text-gray-300">
-                        {hasMonzoAutomation
-                          ? 'Funds will be automatically transferred to your Credit Card pot every night at 2 AM'
-                          : 'Enable write access to automatically transfer funds to your Credit Card pot'}
-                      </p>
+              {/* Mobile-optimized Monzo Automation Status */}
+              <div
+                className={`mb-4 p-4 border rounded-lg ${
+                  monzoAutomationEnabled['monzo']
+                    ? 'bg-green-900/30 border-green-600'
+                    : 'bg-blue-900/30 border-blue-600'
+                }`}
+              >
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div className="flex-1">
+                    <h4
+                      className={`text-sm font-semibold mb-2 ${
+                        hasMonzoAutomation ? 'text-green-300' : 'text-blue-300'
+                      }`}
+                    >
+                      {hasMonzoAutomation
+                        ? '✅ Automated Pot Transfers Enabled'
+                        : '🤖 Automated Pot Transfers'}
+                    </h4>
+                    <p className="text-xs text-gray-300 leading-relaxed">
+                      {hasMonzoAutomation
+                        ? 'Funds will be automatically transferred to your Credit Card pot every night at 2 AM'
+                        : 'Enable write access to automatically transfer funds to your Credit Card pot'}
+                    </p>
+                  </div>
+                  {!hasMonzoAutomation && (
+                    <button
+                      onClick={() => handleEnableMonzoAutomation('monzo')}
+                      disabled={checkingAutomation}
+                      className="bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 font-medium text-sm w-full sm:w-auto disabled:opacity-50"
+                    >
+                      {checkingAutomation ? 'Checking...' : 'Enable Automation'}
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Mobile-optimized Transaction Accounts */}
+              {monzoTransactionAccounts.length > 0 && (
+                <div className="space-y-4">
+                  {monzoTransactionAccounts.map((account) => (
+                    <div
+                      key={account.id || account.account_id}
+                      className="bg-gray-700/50 p-4 rounded-lg border border-gray-600"
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-3 gap-2">
+                        <h4 className="font-medium text-white text-lg">
+                          {account.product_type === 'standard'
+                            ? 'Current Account'
+                            : account.product_type === 'rewards'
+                              ? 'Rewards Account'
+                              : account.display_name || 'Monzo Account'}
+                        </h4>
+                        {account.account_number && (
+                          <span className="text-sm text-gray-400">
+                            ****{account.account_number.slice(-4)}
+                          </span>
+                        )}
+                      </div>
+
+                      {account.balance ? (
+                        <div className="space-y-3">
+                          <div className="flex justify-between items-center">
+                            <span className="text-gray-400 text-sm">
+                              Available Balance
+                            </span>
+                            <span className="font-semibold text-xl text-white">
+                              {formatCurrency(
+                                account.balance.available ||
+                                  account.balance.balance ||
+                                  0,
+                                account.balance.currency || account.currency,
+                                true // isMonzo
+                              )}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-gray-400 text-sm">
+                              Current Balance
+                            </span>
+                            <span className="font-semibold text-white">
+                              {formatCurrency(
+                                account.balance.current ||
+                                  account.balance.balance ||
+                                  0,
+                                account.balance.currency || account.currency,
+                                true // isMonzo
+                              )}
+                            </span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-center py-4">
+                          <p className="text-gray-400 text-sm">
+                            Loading balance...
+                          </p>
+                        </div>
+                      )}
                     </div>
-                    {!hasMonzoAutomation && (
-                      <button
-                        onClick={() => handleEnableMonzoAutomation('monzo')}
-                        disabled={checkingAutomation}
-                        className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 font-medium text-sm whitespace-nowrap ml-4 disabled:opacity-50"
-                      >
-                        {checkingAutomation
-                          ? 'Checking...'
-                          : 'Enable Automation'}
-                      </button>
-                    )}
-                  </div>
+                  ))}
                 </div>
+              )}
 
-                {/* Transaction Accounts */}
-                {monzoTransactionAccounts.length > 0 && (
-                  <div className="space-y-3">
-                    {monzoTransactionAccounts.map((account) => (
-                      <div
-                        key={account.id || account.account_id}
-                        className="bg-gray-600 p-3 rounded border border-gray-500"
-                      >
-                        <div className="flex items-center justify-between mb-2">
-                          <h4 className="font-medium text-white">
-                            {account.product_type === 'standard'
-                              ? 'Current Account'
-                              : account.product_type === 'rewards'
-                                ? 'Rewards Account'
-                                : account.display_name || 'Monzo Account'}
-                          </h4>
-                          <div className="flex items-center gap-2">
+              {/* Pots / Savings Section */}
+              {monzoSavingsAccounts.length > 0 && (
+                <div className="mt-3">
+                  <button
+                    onClick={() => toggleSavingsExpanded('monzo')}
+                    className="flex items-center justify-between w-full text-left mb-2"
+                  >
+                    <h4 className="text-md font-medium text-white">
+                      Pots / Savings ({monzoSavingsAccounts.length})
+                    </h4>
+                    <span className="text-gray-400">
+                      {isSavingsExpanded ? '▼' : '▶'}
+                    </span>
+                  </button>
+
+                  {isSavingsExpanded && (
+                    <div className="space-y-2">
+                      {monzoSavingsAccounts.map((account) => (
+                        <div
+                          key={account.id || account.account_id}
+                          className="bg-gray-600 p-3 rounded border border-gray-500"
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <h5 className="font-medium text-white">
+                              {account.product_type === 'rewards'
+                                ? 'Rewards Pot'
+                                : account.description ||
+                                  account.display_name ||
+                                  'Pot'}
+                            </h5>
                             {account.account_number && (
                               <span className="text-xs text-gray-400">
                                 ****{account.account_number.slice(-4)}
                               </span>
                             )}
                           </div>
-                        </div>
 
-                        {account.balance ? (
-                          <div className="grid grid-cols-2 gap-4 text-sm">
-                            <div>
-                              <p className="text-gray-400">Available Balance</p>
-                              <p className="font-semibold text-lg text-white">
-                                {formatCurrency(
-                                  account.balance.available ||
-                                    account.balance.balance ||
-                                    0,
-                                  account.balance.currency || account.currency,
-                                  true // isMonzo
-                                )}
-                              </p>
+                          {account.balance ? (
+                            <div className="grid grid-cols-2 gap-4 text-sm">
+                              <div>
+                                <p className="text-gray-400">
+                                  Available Balance
+                                </p>
+                                <p className="font-semibold text-white">
+                                  {formatCurrency(
+                                    account.balance.available ||
+                                      account.balance.balance ||
+                                      0,
+                                    account.balance.currency ||
+                                      account.currency,
+                                    true // isMonzo
+                                  )}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-gray-400">Current Balance</p>
+                                <p className="font-semibold text-white">
+                                  {formatCurrency(
+                                    account.balance.current ||
+                                      account.balance.balance ||
+                                      0,
+                                    account.balance.currency ||
+                                      account.currency,
+                                    true // isMonzo
+                                  )}
+                                </p>
+                              </div>
                             </div>
-                            <div>
-                              <p className="text-gray-400">Current Balance</p>
-                              <p className="font-semibold text-white">
-                                {formatCurrency(
-                                  account.balance.current ||
-                                    account.balance.balance ||
-                                    0,
-                                  account.balance.currency || account.currency,
-                                  true // isMonzo
-                                )}
-                              </p>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="text-center py-4">
+                          ) : (
                             <p className="text-gray-400 text-sm">
                               Loading balance...
                             </p>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Pots / Savings Section */}
-                {monzoSavingsAccounts.length > 0 && (
-                  <div className="mt-3">
-                    <button
-                      onClick={() => toggleSavingsExpanded('monzo')}
-                      className="flex items-center justify-between w-full text-left mb-2"
-                    >
-                      <h4 className="text-md font-medium text-white">
-                        Pots / Savings ({monzoSavingsAccounts.length})
-                      </h4>
-                      <span className="text-gray-400">
-                        {isSavingsExpanded ? '▼' : '▶'}
-                      </span>
-                    </button>
-
-                    {isSavingsExpanded && (
-                      <div className="space-y-2">
-                        {monzoSavingsAccounts.map((account) => (
-                          <div
-                            key={account.id || account.account_id}
-                            className="bg-gray-600 p-3 rounded border border-gray-500"
-                          >
-                            <div className="flex items-center justify-between mb-2">
-                              <h5 className="font-medium text-white">
-                                {account.product_type === 'rewards'
-                                  ? 'Rewards Pot'
-                                  : account.description ||
-                                    account.display_name ||
-                                    'Pot'}
-                              </h5>
-                              {account.account_number && (
-                                <span className="text-xs text-gray-400">
-                                  ****{account.account_number.slice(-4)}
-                                </span>
-                              )}
-                            </div>
-
-                            {account.balance ? (
-                              <div className="grid grid-cols-2 gap-4 text-sm">
-                                <div>
-                                  <p className="text-gray-400">
-                                    Available Balance
-                                  </p>
-                                  <p className="font-semibold text-white">
-                                    {formatCurrency(
-                                      account.balance.available ||
-                                        account.balance.balance ||
-                                        0,
-                                      account.balance.currency ||
-                                        account.currency,
-                                      true // isMonzo
-                                    )}
-                                  </p>
-                                </div>
-                                <div>
-                                  <p className="text-gray-400">
-                                    Current Balance
-                                  </p>
-                                  <p className="font-semibold text-white">
-                                    {formatCurrency(
-                                      account.balance.current ||
-                                        account.balance.balance ||
-                                        0,
-                                      account.balance.currency ||
-                                        account.currency,
-                                      true // isMonzo
-                                    )}
-                                  </p>
-                                </div>
-                              </div>
-                            ) : (
-                              <p className="text-gray-400 text-sm">
-                                Loading balance...
-                              </p>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           );
         })()}
 
-      {/* Credit Cards Section */}
+      {/* Mobile-optimized Credit Cards Section */}
       {allCards.length > 0 && (
-        <div className="border border-green-600 bg-gray-800 p-6 rounded-lg">
-          <h2 className="text-xl font-semibold text-green-400 mb-4">
+        <div className="border border-green-600 bg-gray-800 p-4 sm:p-6 rounded-lg">
+          <h2 className="text-lg sm:text-xl font-semibold text-green-400 mb-4">
             💳 Credit Cards
           </h2>
-          <div className="space-y-3">
+          <div className="space-y-4">
             {allCards
               .filter(
                 (card, index, self) =>
@@ -771,14 +765,14 @@ export default function TrueLayerDashboard() {
               .map((card) => (
                 <div
                   key={card.account_id}
-                  className="bg-gray-700 p-4 rounded-lg border border-gray-600"
+                  className="bg-gray-700/50 p-4 rounded-lg border border-gray-600"
                 >
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <h4 className="font-medium text-white">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-3 gap-2">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                      <h4 className="font-medium text-white text-lg">
                         {card.display_name}
                       </h4>
-                      <span className="text-xs text-gray-500 bg-gray-600 px-2 py-1 rounded">
+                      <span className="text-xs text-gray-500 bg-gray-600 px-2 py-1 rounded w-fit">
                         {getProviderDisplayName(card.provider)}
                       </span>
                     </div>
@@ -788,44 +782,52 @@ export default function TrueLayerDashboard() {
                   </div>
 
                   {card.balance ? (
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <p className="text-gray-400">Current Balance</p>
-                        <p className="font-semibold text-lg text-white">
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-400 text-sm">
+                          Current Balance
+                        </span>
+                        <span className="font-semibold text-xl text-white">
                           {formatCurrency(
                             card.balance.current,
                             card.balance.currency
                           )}
-                        </p>
+                        </span>
                       </div>
-                      <div>
-                        <p className="text-gray-400">Credit Limit</p>
-                        <p className="font-semibold text-white">
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-400 text-sm">
+                          Credit Limit
+                        </span>
+                        <span className="font-semibold text-white">
                           {formatCurrency(
                             card.balance.credit_limit,
                             card.balance.currency
                           )}
-                        </p>
+                        </span>
                       </div>
                       {card.balance.available !== undefined && (
-                        <div>
-                          <p className="text-gray-400">Available Credit</p>
-                          <p className="font-semibold text-green-400">
+                        <div className="flex justify-between items-center">
+                          <span className="text-gray-400 text-sm">
+                            Available Credit
+                          </span>
+                          <span className="font-semibold text-green-400">
                             {formatCurrency(
                               card.balance.available,
                               card.balance.currency
                             )}
-                          </p>
+                          </span>
                         </div>
                       )}
                       {card.balance.payment_due_date && (
-                        <div>
-                          <p className="text-gray-400">Payment Due</p>
-                          <p className="font-semibold text-white">
+                        <div className="flex justify-between items-center">
+                          <span className="text-gray-400 text-sm">
+                            Payment Due
+                          </span>
+                          <span className="font-semibold text-white">
                             {new Date(
                               card.balance.payment_due_date
                             ).toLocaleDateString()}
-                          </p>
+                          </span>
                         </div>
                       )}
                     </div>

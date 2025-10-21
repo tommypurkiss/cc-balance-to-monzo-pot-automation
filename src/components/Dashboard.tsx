@@ -33,36 +33,39 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gray-900">
+      {/* Mobile-optimized header */}
       <nav className="bg-gray-800 shadow-lg border-b border-gray-700">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
+        <div className="px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
-              <h1 className="text-xl font-semibold text-white">
-                CC Balance to Monzo Pot
+              <h1 className="text-lg sm:text-xl font-semibold text-white">
+                Balance to Monzo Pot
               </h1>
             </div>
-            <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-300">
+            <div className="flex items-center space-x-2 sm:space-x-4">
+              <span className="hidden sm:inline text-sm text-gray-300">
                 Welcome,{' '}
                 {userProfile?.displayName ||
                   currentUser?.displayName ||
                   currentUser?.email}
               </span>
-              <Link
-                href="/debug"
-                className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
-              >
-                Debug
-              </Link>
+              {process.env.NODE_ENV !== 'production' && (
+                <Link
+                  href="/debug"
+                  className="bg-gray-600 hover:bg-gray-700 text-white px-2 sm:px-4 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors"
+                >
+                  Debug
+                </Link>
+              )}
               <Link
                 href="/profile"
-                className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
+                className="bg-indigo-600 hover:bg-indigo-700 text-white px-2 sm:px-4 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors"
               >
                 Profile
               </Link>
               <button
                 onClick={handleLogout}
-                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
+                className="bg-red-600 hover:bg-red-700 text-white px-2 sm:px-4 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors"
               >
                 Sign Out
               </button>
@@ -71,28 +74,21 @@ export default function Dashboard() {
         </div>
       </nav>
 
-      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        <div className="px-4 py-6 sm:px-0">
-          {/* Notification */}
-          {notification && (
-            <div
-              className={`mb-6 p-4 rounded-lg ${
-                notification.type === 'success'
-                  ? 'bg-green-800/50 border border-green-600 text-green-200'
-                  : 'bg-red-800/50 border border-red-600 text-red-200'
-              }`}
-            >
-              {notification.message}
-            </div>
-          )}
-
-          <div className="bg-gray-800/50 rounded-lg p-6 border border-gray-600">
-            <h3 className="text-lg font-semibold text-white mb-4">
-              Bank Accounts & Credit Cards
-            </h3>
-            <TrueLayerDashboard />
+      <main className="px-4 py-4 sm:px-6 lg:px-8">
+        {/* Notification */}
+        {notification && (
+          <div
+            className={`mb-4 p-4 rounded-lg ${
+              notification.type === 'success'
+                ? 'bg-green-800/50 border border-green-600 text-green-200'
+                : 'bg-red-800/50 border border-red-600 text-red-200'
+            }`}
+          >
+            {notification.message}
           </div>
-        </div>
+        )}
+
+        <TrueLayerDashboard />
       </main>
     </div>
   );
