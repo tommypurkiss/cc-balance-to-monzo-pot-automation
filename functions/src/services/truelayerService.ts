@@ -106,8 +106,6 @@ export class TrueLayerService {
     provider: string = 'truelayer'
   ): Promise<CardBalance | null> {
     try {
-      const accessToken = await this.getValidAccessToken(userId, provider);
-
       const apiUrl = `https://api.truelayer.com/data/v1/cards/${accountId}/balance`;
 
       const response = await performTrueLayerRequestWithRefresh({
