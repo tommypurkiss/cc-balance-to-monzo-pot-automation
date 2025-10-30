@@ -101,29 +101,6 @@ export async function decryptTokens(encryptedTokens: EncryptedTokens): Promise<{
   scope: string;
 }> {
   try {
-    // Add detailed logging here
-    console.log(
-      `🔍 DEBUG: Decrypting tokens for provider: ${encryptedTokens.provider}`
-    );
-    console.log(
-      `🔍 DEBUG: Encrypted Access Token (first 30 chars): ${encryptedTokens.access_token.substring(0, 30)}...`
-    );
-    console.log(
-      `🔍 DEBUG: Encrypted Access Token length: ${encryptedTokens.access_token.length}`
-    );
-    if (encryptedTokens.refresh_token) {
-      console.log(
-        `🔍 DEBUG: Encrypted Refresh Token (first 30 chars): ${encryptedTokens.refresh_token.substring(0, 30)}...`
-      );
-      console.log(
-        `🔍 DEBUG: Encrypted Refresh Token length: ${encryptedTokens.refresh_token.length}`
-      );
-    } else {
-      console.log(
-        `🔍 DEBUG: No refresh token available for ${encryptedTokens.provider}`
-      );
-    }
-
     return {
       access_token: await decrypt(encryptedTokens.access_token),
       refresh_token: encryptedTokens.refresh_token
@@ -172,13 +149,19 @@ export async function refreshTokens(
         ? 'https://api.monzo.com/oauth2/token'
         : 'https://auth.truelayer.com/connect/token';
 
+    // Sanitize client credentials (secrets often include accidental newlines)
+    const cleanedClientId = (clientId || '').replace(/\r?\n/g, '').trim();
+    const cleanedClientSecret = (clientSecret || '')
+      .replace(/\r?\n/g, '')
+      .trim();
+
     console.log(`🔄 Refreshing ${provider} tokens...`);
 
     // Exchange refresh token for new access token
     const refreshParams: any = {
       grant_type: 'refresh_token',
-      client_id: clientId,
-      client_secret: clientSecret,
+      client_id: cleanedClientId,
+      client_secret: cleanedClientSecret,
       refresh_token: refresh_token,
     };
 

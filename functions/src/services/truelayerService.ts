@@ -34,10 +34,6 @@ export class TrueLayerService {
     userId: string,
     provider: string = 'truelayer'
   ): Promise<string> {
-    console.log(
-      `🔍 getValidAccessToken called for userId: ${userId}, provider: ${provider}`
-    );
-
     const encryptedTokens = await getEncryptedTokens(userId, provider);
     if (!encryptedTokens) {
       console.error(
@@ -45,27 +41,15 @@ export class TrueLayerService {
       );
       throw new Error(`No tokens found for user ${userId}`);
     }
-    console.log(`✅ Encrypted tokens found for ${provider}`);
-
     const tokens = await decryptTokens(encryptedTokens);
-    console.log(
-      `🔓 Tokens decrypted for ${provider}, expires_at: ${new Date(tokens.expires_at).toISOString()}`
-    );
 
     // Check if token is expired
     const now = Date.now();
     const isExpired = now >= tokens.expires_at;
-    console.log(
-      `⏰ Token expiry check: now=${now}, expires_at=${tokens.expires_at}, isExpired=${isExpired}`
-    );
 
     if (isExpired) {
-      console.log(
-        `🔄 Token expired for user ${userId}, provider: ${provider}, refreshing...`
-      );
       try {
         await refreshTokens(userId, provider, this.clientId, this.clientSecret);
-        console.log(`✅ Token refresh successful for ${provider}`);
 
         // Get the refreshed tokens
         const refreshedEncryptedTokens = await getEncryptedTokens(
@@ -79,7 +63,6 @@ export class TrueLayerService {
           throw new Error('Failed to get refreshed tokens');
         }
         const refreshedTokens = await decryptTokens(refreshedEncryptedTokens);
-        console.log(`✅ Using refreshed access token for ${provider}`);
         return refreshedTokens.access_token;
       } catch (refreshError) {
         console.error(`❌ Token refresh failed for ${provider}:`, refreshError);
@@ -87,7 +70,6 @@ export class TrueLayerService {
       }
     }
 
-    console.log(`✅ Using existing valid access token for ${provider}`);
     return tokens.access_token;
   }
 
@@ -123,19 +105,10 @@ export class TrueLayerService {
     accountId: string,
     provider: string = 'truelayer'
   ): Promise<CardBalance | null> {
-    console.log(
-      `🔍 TrueLayerService.getCardBalance called for userId: ${userId}, accountId: ${accountId}, provider: ${provider}`
-    );
-
     try {
-      console.log(`🔑 Getting valid access token for provider: ${provider}`);
       const accessToken = await this.getValidAccessToken(userId, provider);
-      console.log(
-        `✅ Access token obtained for ${provider} (length: ${accessToken.length})`
-      );
 
       const apiUrl = `https://api.truelayer.com/data/v1/cards/${accountId}/balance`;
-      console.log(`🌐 Making API call to: ${apiUrl}`);
 
       const response = await performTrueLayerRequestWithRefresh({
         userId,
@@ -151,10 +124,6 @@ export class TrueLayerService {
           }),
       });
 
-      console.log(
-        `📡 API response status: ${response.status} ${response.statusText}`
-      );
-
       if (!response.ok) {
         const errorText = await response.text();
         console.error(
@@ -165,11 +134,7 @@ export class TrueLayerService {
       }
 
       const data = await response.json();
-      console.log(`📊 Raw API response data:`, JSON.stringify(data, null, 2));
-
       const result = data.results?.[0] || null;
-      console.log(`📋 Processed balance result:`, result);
-
       return result;
     } catch (error) {
       console.error(`💥 Exception in getCardBalance for ${provider}:`, error);
