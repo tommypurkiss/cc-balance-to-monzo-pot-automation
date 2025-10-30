@@ -3,6 +3,7 @@ import {
   decryptTokens,
   refreshTokens,
 } from '../utils/firestore';
+import { performTrueLayerRequestWithRefresh } from '../utils/tokenHelpers';
 
 interface CardBalance {
   current: number;
@@ -136,11 +137,18 @@ export class TrueLayerService {
       const apiUrl = `https://api.truelayer.com/data/v1/cards/${accountId}/balance`;
       console.log(`🌐 Making API call to: ${apiUrl}`);
 
-      const response = await fetch(apiUrl, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
+      const response = await performTrueLayerRequestWithRefresh({
+        userId,
+        provider,
+        clientId: this.clientId,
+        clientSecret: this.clientSecret,
+        makeRequest: async (token: string) =>
+          fetch(apiUrl, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          }),
       });
 
       console.log(
