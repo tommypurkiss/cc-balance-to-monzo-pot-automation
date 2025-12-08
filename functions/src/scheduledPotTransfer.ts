@@ -182,11 +182,47 @@ export const scheduledPotTransfer = onSchedule(
               console.log(
                 `  🔄 Attempting to get balance for ${card.displayName}...`
               );
-              const balance = await truelayerService.getCardBalance(
-                userId,
-                card.accountId,
-                card.provider
-              );
+
+              let balance: any = null;
+
+              // Handle Monzo Flex accounts (provider === 'monzo')
+              if (card.provider === 'monzo') {
+                const monzoAccessToken = await monzoService.getMonzoAccessToken(
+                  userId,
+                  monzoClientId.value(),
+                  monzoClientSecret.value()
+                );
+
+                if (!monzoAccessToken) {
+                  console.log(
+                    `    ⚠️ No Monzo access token for ${card.displayName}, skipping`
+                  );
+                  continue;
+                }
+
+                // Get balance using Monzo API (returns number in pounds)
+                const monzoBalance = await monzoService.getAccountBalance(
+                  monzoAccessToken,
+                  card.accountId
+                );
+
+                if (monzoBalance !== null) {
+                  // Convert to AccountBalance-like structure
+                  balance = {
+                    currency: 'GBP',
+                    current: monzoBalance, // Already in pounds
+                    available: monzoBalance,
+                    update_timestamp: new Date().toISOString(),
+                  };
+                }
+              } else {
+                // Handle TrueLayer credit cards
+                balance = await truelayerService.getCardBalance(
+                  userId,
+                  card.accountId,
+                  card.provider
+                );
+              }
 
               console.log(
                 `  📊 Balance response for ${card.displayName}:`,

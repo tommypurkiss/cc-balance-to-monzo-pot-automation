@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBankingData } from '@/contexts/BankingDataContext';
 import { CardData, CardBalance } from '@/lib/clientStorage';
@@ -107,6 +107,68 @@ export default function AutomationSetup() {
     });
   });
 
+  // Add Monzo Flex accounts as selectable "credit cards" for automation
+  const monzoData = data['monzo'];
+  if (monzoData) {
+    const monzoFlexAccounts = monzoData.accounts.filter(
+      (account) => account.type === 'uk_monzo_flex' && !account.closed
+    );
+    monzoFlexAccounts.forEach((account) => {
+      // Convert Monzo Flex account to card-like structure
+      const accountId = account.id || account.account_id;
+      const displayName = 'Monzo Flex';
+      // Extract last 4 digits from description if available, or use account ID
+      let partialCardNumber = '';
+      if (account.description) {
+        // Description format: monzoflex_0000B0mJJxIGYUZniL3AYd
+        const match = account.description.match(/(\d{4})/);
+        if (match) {
+          partialCardNumber = match[1];
+        } else {
+          // Fallback: use last 4 chars of account ID
+          partialCardNumber = accountId.slice(-4);
+        }
+      } else {
+        partialCardNumber = accountId.slice(-4);
+      }
+
+      const flexCard = {
+        account_id: accountId,
+        display_name: displayName,
+        partial_card_number: partialCardNumber,
+        balance: account.balance
+          ? {
+              currency: account.balance.currency || account.currency || 'GBP',
+              current: account.balance.current || account.balance.balance || 0,
+              available:
+                account.balance.available || account.balance.balance || 0,
+              update_timestamp: account.balance.update_timestamp || '',
+            }
+          : undefined,
+        account_type: 'TRANSACTION',
+        currency: account.currency || 'GBP',
+        provider: {
+          display_name: 'Monzo',
+          provider_id: 'monzo',
+          logo_uri: '',
+        },
+        update_timestamp: account.update_timestamp || '',
+        card_network: '',
+        card_type: '',
+        name_on_card: '',
+      };
+
+      // Add string provider property for automation (overrides object provider)
+      allCards.push({
+        ...flexCard,
+        provider: 'monzo',
+      } as unknown as CardData & {
+        balance?: CardBalance;
+        provider: string;
+      });
+    });
+  }
+
   // Deduplicate cards
   const uniqueCards = allCards.filter(
     (card, index, self) =>
@@ -118,12 +180,13 @@ export default function AutomationSetup() {
       )
   );
 
-  // Get Monzo main account
-  const monzoData = data['monzo'];
+  // Get Monzo main account (for source account in automation)
   const monzoMainAccount = monzoData?.accounts.find(
     (account) =>
-      account.product_type === 'standard' ||
-      account.account_type === 'TRANSACTION'
+      (account.product_type === 'standard' ||
+        account.account_type === 'TRANSACTION' ||
+        account.type === 'uk_retail') &&
+      !account.closed
   );
 
   const fetchPots = useCallback(async () => {
@@ -458,7 +521,8 @@ export default function AutomationSetup() {
                         <span className="font-semibold text-white text-lg">
                           {formatCurrency(
                             card.balance.current,
-                            card.balance.currency
+                            card.balance.currency,
+                            card.provider === 'monzo' // Convert from pence to pounds for Monzo
                           )}
                         </span>
                       )}

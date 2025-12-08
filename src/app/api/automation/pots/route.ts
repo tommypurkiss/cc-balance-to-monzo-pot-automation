@@ -58,6 +58,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const accessToken = decryptedToken.access_token;
 
     // First, get the user's Monzo accounts to find the current account ID
+    console.log('📞 Calling Monzo API to fetch accounts...');
     const accountsResponse = await fetch('https://api.monzo.com/accounts', {
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -79,6 +80,29 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     }
 
     const accountsData = await accountsResponse.json();
+    console.log('✅ Monzo accounts API response received');
+    console.log(
+      '📊 Total accounts returned:',
+      accountsData.accounts?.length || 0
+    );
+    console.log(
+      '📋 All Monzo accounts:',
+      JSON.stringify(accountsData.accounts, null, 2)
+    );
+
+    // Log each account's details
+    if (accountsData.accounts && accountsData.accounts.length > 0) {
+      accountsData.accounts.forEach((account: any, index: number) => {
+        console.log(`  Account ${index + 1}:`, {
+          id: account.id,
+          type: account.type,
+          description: account.description,
+          closed: account.closed,
+          created: account.created,
+        });
+      });
+    }
+
     const currentAccount = accountsData.accounts?.find(
       (account: any) => account.type === 'uk_retail' && account.closed === false
     );

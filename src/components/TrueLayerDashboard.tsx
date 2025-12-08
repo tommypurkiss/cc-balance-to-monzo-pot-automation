@@ -524,7 +524,9 @@ export default function TrueLayerDashboard() {
           const monzoTransactionAccounts = monzoData.accounts.filter(
             (account) =>
               account.product_type === 'standard' ||
-              account.account_type === 'TRANSACTION'
+              account.account_type === 'TRANSACTION' ||
+              account.type === 'uk_retail' ||
+              account.type === 'uk_monzo_flex'
           );
           const monzoSavingsAccounts = monzoData.accounts.filter(
             (account) =>
@@ -605,11 +607,14 @@ export default function TrueLayerDashboard() {
                     >
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-3 gap-2">
                         <h4 className="font-medium text-white text-lg">
-                          {account.product_type === 'standard'
-                            ? 'Current Account'
-                            : account.product_type === 'rewards'
-                              ? 'Rewards Account'
-                              : account.display_name || 'Monzo Account'}
+                          {account.type === 'uk_monzo_flex'
+                            ? 'Monzo Flex'
+                            : account.product_type === 'standard' ||
+                                account.type === 'uk_retail'
+                              ? 'Current Account'
+                              : account.product_type === 'rewards'
+                                ? 'Rewards Account'
+                                : account.display_name || 'Monzo Account'}
                         </h4>
                         {account.account_number && (
                           <span className="text-sm text-gray-400">
@@ -620,34 +625,81 @@ export default function TrueLayerDashboard() {
 
                       {account.balance ? (
                         <div className="space-y-3">
-                          <div className="flex justify-between items-center">
-                            <span className="text-gray-400 text-sm">
-                              Available Balance
-                            </span>
-                            <span className="font-semibold text-xl text-white">
-                              {formatCurrency(
-                                account.balance.available ||
-                                  account.balance.balance ||
-                                  0,
-                                account.balance.currency || account.currency,
-                                true // isMonzo
-                              )}
-                            </span>
-                          </div>
-                          <div className="flex justify-between items-center">
-                            <span className="text-gray-400 text-sm">
-                              Current Balance
-                            </span>
-                            <span className="font-semibold text-white">
-                              {formatCurrency(
-                                account.balance.current ||
-                                  account.balance.balance ||
-                                  0,
-                                account.balance.currency || account.currency,
-                                true // isMonzo
-                              )}
-                            </span>
-                          </div>
+                          {account.type === 'uk_monzo_flex' ? (
+                            // For Flex accounts, show amount owed (credit balance)
+                            <>
+                              <div className="flex justify-between items-center">
+                                <span className="text-gray-400 text-sm">
+                                  Amount Owed
+                                </span>
+                                <span className="font-semibold text-xl text-white">
+                                  {formatCurrency(
+                                    Math.abs(
+                                      account.balance.current ||
+                                        account.balance.balance ||
+                                        account.balance.available ||
+                                        0
+                                    ),
+                                    account.balance.currency ||
+                                      account.currency,
+                                    true // isMonzo
+                                  )}
+                                </span>
+                              </div>
+                              {account.balance.available !== undefined &&
+                                account.balance.available !==
+                                  (account.balance.current ||
+                                    account.balance.balance) && (
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-gray-400 text-sm">
+                                      Available Credit
+                                    </span>
+                                    <span className="font-semibold text-green-400">
+                                      {formatCurrency(
+                                        account.balance.available,
+                                        account.balance.currency ||
+                                          account.currency,
+                                        true // isMonzo
+                                      )}
+                                    </span>
+                                  </div>
+                                )}
+                            </>
+                          ) : (
+                            // For regular accounts, show available and current balance
+                            <>
+                              <div className="flex justify-between items-center">
+                                <span className="text-gray-400 text-sm">
+                                  Available Balance
+                                </span>
+                                <span className="font-semibold text-xl text-white">
+                                  {formatCurrency(
+                                    account.balance.available ||
+                                      account.balance.balance ||
+                                      0,
+                                    account.balance.currency ||
+                                      account.currency,
+                                    true // isMonzo
+                                  )}
+                                </span>
+                              </div>
+                              <div className="flex justify-between items-center">
+                                <span className="text-gray-400 text-sm">
+                                  Current Balance
+                                </span>
+                                <span className="font-semibold text-white">
+                                  {formatCurrency(
+                                    account.balance.current ||
+                                      account.balance.balance ||
+                                      0,
+                                    account.balance.currency ||
+                                      account.currency,
+                                    true // isMonzo
+                                  )}
+                                </span>
+                              </div>
+                            </>
+                          )}
                         </div>
                       ) : (
                         <div className="text-center py-4">
