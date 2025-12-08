@@ -1,6 +1,5 @@
 'use client';
 
-import React from 'react';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { UserProvider } from '@/contexts/UserContext';
 import { BankingDataProvider } from '@/contexts/BankingDataContext';

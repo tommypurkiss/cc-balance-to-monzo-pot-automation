@@ -402,12 +402,7 @@ class ClientStorageService {
     if (provider === 'monzo') {
       // Direct Monzo API call
       const url = `https://api.monzo.com${endpoint}`;
-      if (endpoint === '/accounts') {
-        console.log(
-          '📞 [ClientStorage] Calling Monzo API to fetch accounts...'
-        );
-        console.log('🔗 [ClientStorage] URL:', url);
-      }
+
       response = await fetch(url, {
         headers: {
           Authorization: `Bearer ${session.accessToken}`,
@@ -453,36 +448,6 @@ class ClientStorageService {
     }
 
     const responseData = await response.json();
-
-    // Log Monzo accounts response
-    if (
-      provider === 'monzo' &&
-      endpoint === '/accounts' &&
-      responseData.accounts
-    ) {
-      console.log('✅ [ClientStorage] Monzo accounts API response received');
-      console.log(
-        '📊 [ClientStorage] Total accounts returned:',
-        responseData.accounts?.length || 0
-      );
-      console.log(
-        '📋 [ClientStorage] All Monzo accounts:',
-        JSON.stringify(responseData.accounts, null, 2)
-      );
-
-      // Log each account's details
-      if (responseData.accounts && responseData.accounts.length > 0) {
-        responseData.accounts.forEach((account: any, index: number) => {
-          console.log(`  [ClientStorage] Account ${index + 1}:`, {
-            id: account.id,
-            type: account.type,
-            description: account.description,
-            closed: account.closed,
-            created: account.created,
-          });
-        });
-      }
-    }
 
     return responseData;
   }
@@ -566,12 +531,6 @@ class ClientStorageService {
         // Monzo API returns balance in pence, map to AccountBalance format
         // For Flex accounts, balance is negative (representing debt)
         const balanceInPence = data.balance || 0;
-        console.log(`[ClientStorage] Monzo balance raw:`, {
-          accountId,
-          rawBalance: balanceInPence,
-          balanceInPounds: balanceInPence / 100,
-          currency: data.currency,
-        });
 
         return {
           currency: data.currency || 'GBP',

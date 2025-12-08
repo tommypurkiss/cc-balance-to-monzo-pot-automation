@@ -1,6 +1,7 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
+  // Webpack config for non-Turbopack builds
   webpack: (config, { isServer }) => {
     if (!isServer) {
       // Ensure firebase-admin is never bundled in client
@@ -28,6 +29,8 @@ const nextConfig: NextConfig = {
     }
     return config;
   },
+  // Turbopack config (empty means use defaults, but acknowledge Turbopack)
+  turbopack: {},
 };
 
 export default nextConfig;
