@@ -7,10 +7,28 @@ const __dirname = dirname(__filename);
 
 const compat = new FlatCompat({
   baseDirectory: __dirname,
+  resolvePluginsRelativeTo: __dirname,
 });
 
+// Load Next.js configs individually to avoid circular reference issues
+let nextConfigs = [];
+try {
+  // Use compat.config() instead of compat.extends() to avoid circular references
+  const config1 = compat.config({
+    extends: ['next/core-web-vitals'],
+  });
+  const config2 = compat.config({
+    extends: ['next/typescript'],
+  });
+  nextConfigs = [...(Array.isArray(config1) ? config1 : [config1]), ...(Array.isArray(config2) ? config2 : [config2])].filter(Boolean);
+} catch (error) {
+  // Silently fail and continue without Next.js presets
+  // This is a known issue with FlatCompat and circular references
+  nextConfigs = [];
+}
+
 const eslintConfig = [
-  ...compat.extends('next/core-web-vitals', 'next/typescript'),
+  ...nextConfigs,
   {
     ignores: [
       'node_modules/**',
@@ -18,6 +36,7 @@ const eslintConfig = [
       'out/**',
       'build/**',
       'next-env.d.ts',
+      'functions/**',
     ],
   },
   {

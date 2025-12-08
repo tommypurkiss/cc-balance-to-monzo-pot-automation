@@ -1,0 +1,44 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Helper function to check if user is accessing their own data
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Users collection - users can read/write their own profile
+    match /users/{userId} {
+      // Users can read their own profile
+      allow read: if isOwner(userId);
+      
+      // Users can create/update their own profile
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId);
+      
+      // Users cannot delete their profile (use soft delete via deleted field)
+      allow delete: if false;
+    }
+    
+    // User tokens collection - DENY ALL client access (admin SDK only)
+    // This contains sensitive encrypted OAuth tokens
+    match /user_tokens/{tokenId} {
+      allow read, write: if false;
+    }
+    
+    // Automation rules collection - DENY ALL client access (admin SDK only)
+    // Access is controlled via secure API routes using admin SDK
+    match /automation_rules/{ruleId} {
+      allow read, write: if false;
+    }
+    
+    // Deny access to any other collections
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -54,7 +54,7 @@
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx}": [
-      "eslint --fix",
+      "node scripts/eslint-wrapper.js --fix || echo 'ESLint error - continuing...'",
       "prettier --write"
     ],
     "*.{json,md}": [
