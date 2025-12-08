@@ -207,13 +207,22 @@ export const scheduledPotTransfer = onSchedule(
                 );
 
                 if (monzoBalance !== null) {
+                  // Monzo Flex balance is negative (debt owed)
+                  // Convert to positive to match TrueLayer format (positive = debt)
+                  const debtAmount = Math.abs(monzoBalance);
+
                   // Convert to AccountBalance-like structure
+                  // Use positive value to match TrueLayer credit card format
                   balance = {
                     currency: 'GBP',
-                    current: monzoBalance, // Already in pounds
-                    available: monzoBalance,
+                    current: debtAmount, // Positive value representing debt (in pounds)
+                    available: debtAmount,
                     update_timestamp: new Date().toISOString(),
                   };
+
+                  console.log(
+                    `    📊 Monzo Flex raw balance: £${monzoBalance.toFixed(2)} (negative), converted to debt: £${debtAmount.toFixed(2)}`
+                  );
                 }
               } else {
                 // Handle TrueLayer credit cards
@@ -302,10 +311,11 @@ export const scheduledPotTransfer = onSchedule(
           );
 
           // Calculate transfer amount (full credit card balance)
+          // All credit card balances should now be positive (debt amount)
           const transferAmount = totalCreditCardBalance * 100; // Convert to pence
           const transferAmountPounds = transferAmount / 100;
 
-          if (transferAmount === 0) {
+          if (transferAmount === 0 || totalCreditCardBalance === 0) {
             console.log('  ℹ️ No credit card debt found, no transfer needed');
             continue;
           }
