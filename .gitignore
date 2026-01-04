@@ -43,3 +43,11 @@ next-env.d.ts
 
 # project plans (optional - remove this line if you want to commit planning docs)
 /project-plans/
+
+.vscode
+
+.swc
+
+.idea
+
+.husky
