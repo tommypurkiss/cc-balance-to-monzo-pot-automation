@@ -140,56 +140,56 @@ export class TrueLayerService {
     }
   }
 
-  /**
-   * Get all bank accounts for a user
-   */
-  async getAccounts(
-    userId: string,
-    provider: string = 'truelayer'
-  ): Promise<any[]> {
-    const accessToken = await this.getValidAccessToken(userId, provider);
+  // /**
+  //  * Get all bank accounts for a user
+  //  */
+  // async getAccounts(
+  //   userId: string,
+  //   provider: string = 'truelayer'
+  // ): Promise<any[]> {
+  //   const accessToken = await this.getValidAccessToken(userId, provider);
 
-    const response = await fetch('https://api.truelayer.com/data/v1/accounts', {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-    });
+  //   const response = await fetch('https://api.truelayer.com/data/v1/accounts', {
+  //     headers: {
+  //       Authorization: `Bearer ${accessToken}`,
+  //       'Content-Type': 'application/json',
+  //     },
+  //   });
 
-    if (!response.ok) {
-      throw new Error(`Failed to fetch accounts: ${response.statusText}`);
-    }
+  //   if (!response.ok) {
+  //     throw new Error(`Failed to fetch accounts: ${response.statusText}`);
+  //   }
 
-    const data = await response.json();
-    return data.results || [];
-  }
+  //   const data = await response.json();
+  //   return data.results || [];
+  // }
 
-  /**
-   * Get balance for a specific account
-   */
-  async getAccountBalance(
-    userId: string,
-    accountId: string,
-    provider: string = 'truelayer'
-  ): Promise<AccountBalance | null> {
-    const accessToken = await this.getValidAccessToken(userId, provider);
+  // /**
+  //  * Get balance for a specific account
+  //  */
+  // async getAccountBalance(
+  //   userId: string,
+  //   accountId: string,
+  //   provider: string = 'truelayer'
+  // ): Promise<AccountBalance | null> {
+  //   const accessToken = await this.getValidAccessToken(userId, provider);
 
-    const response = await fetch(
-      `https://api.truelayer.com/data/v1/accounts/${accountId}/balance`,
-      {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-      }
-    );
+  //   const response = await fetch(
+  //     `https://api.truelayer.com/data/v1/accounts/${accountId}/balance`,
+  //     {
+  //       headers: {
+  //         Authorization: `Bearer ${accessToken}`,
+  //         'Content-Type': 'application/json',
+  //       },
+  //     }
+  //   );
 
-    if (!response.ok) {
-      console.error(`Failed to fetch balance for account ${accountId}`);
-      return null;
-    }
+  //   if (!response.ok) {
+  //     console.error(`Failed to fetch balance for account ${accountId}`);
+  //     return null;
+  //   }
 
-    const data = await response.json();
-    return data.results?.[0] || null;
-  }
+  //   const data = await response.json();
+  //   return data.results?.[0] || null;
+  // }
 }

@@ -107,7 +107,7 @@ async function callEncryptionService(
       EncryptionResponse
     >(
       functions,
-      'encryptionservice' // Your function name (without the URL)
+      'encryptionService' // Your function name (without the URL)
     );
 
     // Call the function - Firebase handles auth, retries, and errors
@@ -123,7 +123,6 @@ async function callEncryptionService(
       );
     }
 
-    console.log(`encryptionService - ${operation} successful`);
     return result.data.result;
   } catch (error) {
     // Firebase Functions errors have a specific structure

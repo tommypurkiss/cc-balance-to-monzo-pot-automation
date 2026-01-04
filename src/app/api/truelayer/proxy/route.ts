@@ -114,9 +114,17 @@ export async function GET(request: NextRequest) {
     // Only log 401 errors as they indicate token issues
     if (errorObj.response?.status === 401) {
       console.error(
-        `401 Unauthorized for ${endpoint} - token may be invalid or expired`
+        `truelayer/proxy - 401 Unauthorized for ${endpoint} - token may be invalid or expired`
       );
     }
+
+    // Only log 501 errors as they indicate provider does not support this endpoint
+    if (errorObj.response?.status === 501) {
+      console.error(
+        `truelayer/proxy - 501 Not Implemented for ${endpoint} - provider does not support this endpoint`
+      );
+    }
+
     return handleError(error, 'GET');
   }
 }

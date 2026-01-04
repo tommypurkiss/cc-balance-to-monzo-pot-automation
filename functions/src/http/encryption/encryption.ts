@@ -1,4 +1,4 @@
-import { onRequest } from 'firebase-functions/v2/https';
+import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { defineSecret } from 'firebase-functions/params';
 import { encryptionHelpers } from './encryptionHelpers';
 import { info } from 'firebase-functions/logger';
@@ -6,74 +6,54 @@ import { info } from 'firebase-functions/logger';
 const encryptionKey = defineSecret('ENCRYPTION_KEY');
 
 /**
- * HTTP function for encryption/decryption operations
+ * Callable function for encryption/decryption operations
  */
-export const encryptionService = onRequest(
+export const encryptionService = onCall(
   {
     secrets: [encryptionKey],
     region: 'europe-west2',
+    cors: true, // Automatically handles CORS
   },
-  async (req, res) => {
+  async (request) => {
     info('encryptionService - Request received');
 
-    // Enable CORS
-    res.set('Access-Control-Allow-Origin', '*');
-    res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    res.set('Access-Control-Allow-Headers', 'Content-Type');
+    const { operation, data } = request.data;
 
-    if (req.method === 'OPTIONS') {
-      res.status(204).send('');
-      return;
+    info('encryptionService - Operation:', operation);
+    info('encryptionService - Data present:', !!data);
+
+    // Validation
+    if (!operation || !data) {
+      throw new HttpsError('invalid-argument', 'Missing operation or data');
     }
 
-    if (req.method !== 'POST') {
-      res.status(405).json({ error: 'Method not allowed' });
-      return;
+    if (typeof data !== 'string') {
+      throw new HttpsError('invalid-argument', 'Data must be a string');
     }
+
+    if (operation !== 'encrypt' && operation !== 'decrypt') {
+      throw new HttpsError(
+        'invalid-argument',
+        'Invalid operation. Use "encrypt" or "decrypt"'
+      );
+    }
+
+    const key = encryptionKey.value();
 
     try {
-      const { operation, data } = req.body;
-      info('encryptionService - Operation:', operation);
-      info('encryptionService - Data:', data);
+      let result: string;
 
-      if (!operation || !data) {
-        res.status(400).json({ error: 'Missing operation or data' });
-        return;
+      if (operation === 'encrypt') {
+        result = encryptionHelpers.encrypt(data, key);
+      } else {
+        result = encryptionHelpers.decrypt(data, key);
       }
 
-      const key = encryptionKey.value();
-
-      switch (operation) {
-        case 'encrypt':
-          if (typeof data !== 'string') {
-            res
-              .status(400)
-              .json({ error: 'Data must be a string for encryption' });
-            return;
-          }
-          const encrypted = encryptionHelpers.encrypt(data, key);
-          res.json({ result: encrypted });
-          break;
-
-        case 'decrypt':
-          if (typeof data !== 'string') {
-            res
-              .status(400)
-              .json({ error: 'Data must be a string for decryption' });
-            return;
-          }
-          const decrypted = encryptionHelpers.decrypt(data, key);
-          res.json({ result: decrypted });
-          break;
-
-        default:
-          res
-            .status(400)
-            .json({ error: 'Invalid operation. Use "encrypt" or "decrypt"' });
-      }
+      info('encryptionService - Operation successful');
+      return { result };
     } catch (error) {
-      console.error('encryptionService - Encryption service error:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      console.error('encryptionService - Error:', error);
+      throw new HttpsError('internal', 'Encryption service error', error);
     }
   }
 );
