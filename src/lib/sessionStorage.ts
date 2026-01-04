@@ -308,34 +308,35 @@ class SessionStorageService {
     }
   }
 
-  // Get accounts for a provider
-  async getAccounts(provider: string): Promise<AccountData[]> {
-    try {
-      const data = await this.apiCall<{ results: AccountData[] }>(
-        '/data/v1/accounts',
-        provider
-      );
-      return data.results || [];
-    } catch (error) {
-      throw error;
-    }
-  }
+  // TODO: fix truelayer accounts api call
+  // // Get accounts for a provider
+  // async getAccounts(provider: string): Promise<AccountData[]> {
+  //   try {
+  //     const data = await this.apiCall<{ results: AccountData[] }>(
+  //       '/data/v1/accounts',
+  //       provider
+  //     );
+  //     return data.results || [];
+  //   } catch (error) {
+  //     throw error;
+  //   }
+  // }
 
-  // Get account balance
-  async getAccountBalance(
-    accountId: string,
-    provider: string
-  ): Promise<AccountBalance | null> {
-    try {
-      const data = await this.apiCall<{ results: AccountBalance[] }>(
-        `/data/v1/accounts/${accountId}/balance`,
-        provider
-      );
-      return data.results?.[0] || null;
-    } catch (error) {
-      throw error;
-    }
-  }
+  // // Get account balance
+  // async getAccountBalance(
+  //   accountId: string,
+  //   provider: string
+  // ): Promise<AccountBalance | null> {
+  //   try {
+  //     const data = await this.apiCall<{ results: AccountBalance[] }>(
+  //       `/data/v1/accounts/${accountId}/balance`,
+  //       provider
+  //     );
+  //     return data.results?.[0] || null;
+  //   } catch (error) {
+  //     throw error;
+  //   }
+  // }
 
   // Get all data for all connected providers
   async getAllData(): Promise<{
@@ -387,39 +388,39 @@ class SessionStorageService {
         }
 
         // Get accounts and their balances
-        try {
-          const accounts = await this.getAccounts(session.provider);
-          for (const account of accounts) {
-            try {
-              const balance = await this.getAccountBalance(
-                account.account_id,
-                session.provider
-              );
-              allData[session.provider].accounts.push({ ...account, balance });
-              hasAnyData = true;
-            } catch (error) {
-              console.warn(
-                `Failed to get balance for account ${account.account_id}:`,
-                error
-              );
-              allData[session.provider].accounts.push(account);
-              hasAnyData = true;
-            }
-          }
-        } catch (error) {
-          console.warn(
-            `Failed to get accounts for ${session.provider}:`,
-            error
-          );
-          // If it's an auth error, throw it up to be handled by the dashboard
-          if (
-            error instanceof Error &&
-            (error.message.includes('invalid_token') ||
-              error.message.includes('401'))
-          ) {
-            throw error;
-          }
-        }
+        // try {
+        //   const accounts = await this.getAccounts(session.provider);
+        //   for (const account of accounts) {
+        //     try {
+        //       const balance = await this.getAccountBalance(
+        //         account.account_id,
+        //         session.provider
+        //       );
+        //       allData[session.provider].accounts.push({ ...account, balance });
+        //       hasAnyData = true;
+        //     } catch (error) {
+        //       console.warn(
+        //         `Failed to get balance for account ${account.account_id}:`,
+        //         error
+        //       );
+        //       allData[session.provider].accounts.push(account);
+        //       hasAnyData = true;
+        //     }
+        //   }
+        // } catch (error) {
+        //   console.warn(
+        //     `Failed to get accounts for ${session.provider}:`,
+        //     error
+        //   );
+        //   // If it's an auth error, throw it up to be handled by the dashboard
+        //   if (
+        //     error instanceof Error &&
+        //     (error.message.includes('invalid_token') ||
+        //       error.message.includes('401'))
+        //   ) {
+        //     throw error;
+        //   }
+        // }
       } catch (error) {
         console.error(`Failed to get data for ${session.provider}:`, error);
         // If it's an auth error, throw it up to be handled by the dashboard

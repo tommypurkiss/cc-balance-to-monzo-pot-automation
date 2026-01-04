@@ -80,28 +80,28 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     }
 
     const accountsData = await accountsResponse.json();
-    console.log('automation/pots - Monzo accounts API response received');
-    console.log(
-      'automation/pots - Total accounts returned:',
-      accountsData.accounts?.length || 0
-    );
-    console.log(
-      'automation/pots - All Monzo accounts:',
-      JSON.stringify(accountsData.accounts, null, 2)
-    );
+    // console.log('automation/pots - Monzo accounts API response received');
+    // console.log(
+    //   'automation/pots - Total accounts returned:',
+    //   accountsData.accounts?.length || 0
+    // );
+    // console.log(
+    //   'automation/pots - All Monzo accounts:',
+    //   JSON.stringify(accountsData.accounts, null, 2)
+    // );
 
     // Log each account's details
-    if (accountsData.accounts && accountsData.accounts.length > 0) {
-      accountsData.accounts.forEach((account: any, index: number) => {
-        console.log(`automation/pots - Account ${index + 1}:`, {
-          id: account.id,
-          type: account.type,
-          description: account.description,
-          closed: account.closed,
-          created: account.created,
-        });
-      });
-    }
+    // if (accountsData.accounts && accountsData.accounts.length > 0) {
+    //   accountsData.accounts.forEach((account: any, index: number) => {
+    //     console.log(`automation/pots - Account ${index + 1}:`, {
+    //       id: account.id,
+    //       type: account.type,
+    //       description: account.description,
+    //       closed: account.closed,
+    //       created: account.created,
+    //     });
+    //   });
+    // }
 
     const currentAccount = accountsData.accounts?.find(
       (account: any) => account.type === 'uk_retail' && account.closed === false

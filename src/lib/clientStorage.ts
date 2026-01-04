@@ -504,11 +504,14 @@ class ClientStorageService {
         return data.accounts || [];
       }
 
-      const data = await this.apiCall<{ results: AccountData[] }>(
-        '/data/v1/accounts',
-        provider
-      );
-      return data.results || [];
+      return [];
+
+      // TODO: fix the truelayer accounts api call
+      // const data = await this.apiCall<{ results: AccountData[] }>(
+      //   '/data/v1/accounts',
+      //   provider
+      // );
+      // return data.results || [];
     } catch (error) {
       throw error;
     }
@@ -542,11 +545,12 @@ class ClientStorageService {
         } as AccountBalance;
       }
 
-      const data = await this.apiCall<{ results: AccountBalance[] }>(
-        `/data/v1/accounts/${accountId}/balance`,
-        provider
-      );
-      return data.results?.[0] || null;
+      // const data = await this.apiCall<{ results: AccountBalance[] }>(
+      //   `/data/v1/accounts/${accountId}/balance`,
+      //   provider
+      // );
+      // return data.results?.[0] || null;
+      return null;
     } catch (error) {
       throw error;
     }
