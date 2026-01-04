@@ -3,6 +3,7 @@
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { UserProvider } from '@/contexts/UserContext';
 import { BankingDataProvider } from '@/contexts/BankingDataContext';
+import Navbar from '../Navbar/Navbar';
 
 interface AppProvidersProps {
   children: React.ReactNode;
@@ -18,6 +19,7 @@ function UserAndBankingProviderWrapper({
   return (
     <UserProvider currentUser={currentUser}>
       <BankingDataProvider currentUser={currentUser}>
+        {currentUser && <Navbar />}
         {children}
       </BankingDataProvider>
     </UserProvider>
