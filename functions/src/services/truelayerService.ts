@@ -12,11 +12,11 @@ interface CardBalance {
   currency: string;
 }
 
-interface AccountBalance {
-  current: number;
-  available: number;
-  currency: string;
-}
+// interface AccountBalance {
+//   current: number;
+//   available: number;
+//   currency: string;
+// }
 
 export class TrueLayerService {
   private clientId: string;
