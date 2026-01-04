@@ -1,4 +1,5 @@
 import * as admin from 'firebase-admin';
+import { info } from 'firebase-functions/logger';
 
 // HTTP encryption service URL
 const ENCRYPTION_SERVICE_URL =
@@ -135,12 +136,12 @@ export async function refreshTokens(
     // Check if refresh_token exists
     if (!refresh_token) {
       console.warn(
-        `⚠️ No refresh_token available for ${provider}. Token cannot be refreshed.`
+        `firestore - No refresh_token available for ${provider}. Token cannot be refreshed.`
       );
       console.warn(
-        '💡 For Monzo pre-verification apps: User needs to re-authorize.'
+        'firestore - For Monzo pre-verification apps: User needs to re-authorize.'
       );
-      throw new Error('No refresh_token available');
+      throw new Error('firestore - No refresh_token available');
     }
 
     // Determine token endpoint based on provider
@@ -155,7 +156,7 @@ export async function refreshTokens(
       .replace(/\r?\n/g, '')
       .trim();
 
-    console.log(`🔄 Refreshing ${provider} tokens...`);
+    info(`firestore - Refreshing ${provider} tokens...`);
 
     // Exchange refresh token for new access token
     const refreshParams: any = {
@@ -180,18 +181,21 @@ export async function refreshTokens(
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`Failed to refresh ${provider} tokens:`, errorText);
       console.error(
-        `Response status: ${response.status} ${response.statusText}`
+        `firestore - Failed to refresh ${provider} tokens:`,
+        errorText
       );
-      console.error(`Request params:`, {
+      console.error(
+        `firestore - Response status: ${response.status} ${response.statusText}`
+      );
+      console.error(`firestore - Request params:`, {
         grant_type: refreshParams.grant_type,
         client_id: refreshParams.client_id,
         scope: refreshParams.scope,
         refresh_token_length: refreshParams.refresh_token?.length || 0,
       });
       throw new Error(
-        `Failed to refresh ${provider} tokens: ${response.status} - ${errorText}`
+        `firestore - Failed to refresh ${provider} tokens: ${response.status} - ${errorText}`
       );
     }
 
@@ -213,10 +217,10 @@ export async function refreshTokens(
         expires_at: Date.now() + newTokens.expires_in * 1000,
         updated_at: Date.now(),
       });
-      console.log(`✅ ${provider} tokens refreshed successfully`);
+      info(`firestore - ${provider} tokens refreshed successfully`);
     }
   } catch (error) {
-    console.error(`Error refreshing ${provider} tokens:`, error);
+    console.error(`firestore - Error refreshing ${provider} tokens:`, error);
     throw error;
   }
 }
