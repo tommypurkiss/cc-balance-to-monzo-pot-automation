@@ -43,6 +43,12 @@ export default function Navbar() {
                 </Link>
               )}
               <Link
+                href="/accounts"
+                className="bg-indigo-600 hover:bg-indigo-700 text-white px-2 sm:px-4 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors"
+              >
+                Accounts
+              </Link>
+              <Link
                 href="/profile"
                 className="bg-indigo-600 hover:bg-indigo-700 text-white px-2 sm:px-4 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors"
               >
