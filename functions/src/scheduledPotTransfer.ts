@@ -4,7 +4,6 @@ import { TrueLayerService } from './services/truelayerService';
 import { MonzoService } from './services/monzoService';
 import { defineSecret } from 'firebase-functions/params';
 import { info } from 'firebase-functions/logger';
-// We'll use the HTTP encryption service for consistency with frontend
 
 // Initialize Firebase Admin
 admin.initializeApp();
@@ -123,263 +122,268 @@ export const scheduledPotTransfer = onSchedule(
           continue;
         }
 
-        // Process the first active rule (for now, we only support one rule per user)
-        const rule = activeRules[0];
-        info(`scheduledPotTransfer - Processing rule: ${rule.id}`);
         info(
-          `scheduledPotTransfer - Target pot: ${rule.targetPot.potName} (${rule.targetPot.potId})`
-        );
-        info(
-          `scheduledPotTransfer - Credit cards: ${rule.creditCards.length} selected`
-        );
-        rule.creditCards.forEach((card, index) => {
-          info(
-            `${index + 1}. ${card.displayName} (Provider: ${card.provider}, Account ID: ${card.accountId}, Last 4: ****${card.partialCardNumber})`
-          );
-        });
-        info(
-          `scheduledPotTransfer - Minimum bank balance: £${(rule.minimumBankBalance / 100).toFixed(2)}`
+          `scheduledPotTransfer - Found ${activeRules.length} active rule(s) for user`
         );
 
-        try {
-          // Check if user has required tokens
-          const tokensSnapshot = await db
-            .collection('user_tokens')
-            .where('user_id', '==', userId)
-            .where('deleted', '==', false)
-            .get();
+        // Check if user has required tokens (only once per user)
+        const tokensSnapshot = await db
+          .collection('user_tokens')
+          .where('user_id', '==', userId)
+          .where('deleted', '==', false)
+          .get();
 
-          if (tokensSnapshot.empty) {
-            info('scheduledPotTransfer - No tokens found for user, skipping');
-            continue;
-          }
-
-          const userTokens = tokensSnapshot.docs.map((doc) => ({
-            provider: doc.data().provider,
-            deleted: doc.data().deleted,
-            hasAccessToken: !!doc.data().access_token,
-          }));
-
-          // Check for required tokens
-          const hasMonzoToken = userTokens.some(
-            (token) => !token.deleted && token.provider === 'monzo'
-          );
-
-          if (!hasMonzoToken) {
-            info(
-              'scheduledPotTransfer - No direct Monzo token found (needed for all operations), skipping'
-            );
-            continue;
-          }
-
-          // Get credit card balances for selected cards
-          let totalCreditCardBalance = 0;
-          let totalCardsFound = 0;
-
-          info(
-            `scheduledPotTransfer - Processing ${rule.creditCards.length} credit cards...`
-          );
-
-          for (const card of rule.creditCards) {
-            info(
-              `scheduledPotTransfer - Processing card: ${card.displayName} (Provider: ${card.provider}, Account ID: ${card.accountId})`
-            );
-
-            try {
-              info(
-                `scheduledPotTransfer - Attempting to get balance for ${card.displayName}...`
-              );
-
-              let balance: any = null;
-
-              // Handle Monzo Flex accounts (provider === 'monzo')
-              if (card.provider === 'monzo') {
-                const monzoAccessToken = await monzoService.getMonzoAccessToken(
-                  userId,
-                  monzoClientId.value(),
-                  monzoClientSecret.value()
-                );
-
-                if (!monzoAccessToken) {
-                  info(
-                    `scheduledPotTransfer - No Monzo access token for ${card.displayName}, skipping`
-                  );
-                  continue;
-                }
-
-                // Get balance using Monzo API (returns number in pounds)
-                const monzoBalance = await monzoService.getAccountBalance(
-                  monzoAccessToken,
-                  card.accountId
-                );
-
-                if (monzoBalance !== null) {
-                  // Monzo Flex balance is negative (debt owed)
-                  // Convert to positive to match TrueLayer format (positive = debt)
-                  const debtAmount = Math.abs(monzoBalance);
-
-                  // Convert to AccountBalance-like structure
-                  // Use positive value to match TrueLayer credit card format
-                  balance = {
-                    currency: 'GBP',
-                    current: debtAmount, // Positive value representing debt (in pounds)
-                    available: debtAmount,
-                    update_timestamp: new Date().toISOString(),
-                  };
-
-                  info(
-                    `scheduledPotTransfer - Monzo Flex raw balance: £${monzoBalance.toFixed(2)} (negative), converted to debt: £${debtAmount.toFixed(2)}`
-                  );
-                }
-              } else {
-                // Handle TrueLayer credit cards
-                balance = await truelayerService.getCardBalance(
-                  userId,
-                  card.accountId,
-                  card.provider
-                );
-              }
-
-              info(
-                `scheduledPotTransfer - Balance response for ${card.displayName}:`,
-                balance
-              );
-
-              if (balance) {
-                info(
-                  `scheduledPotTransfer - ${card.displayName} (****${card.partialCardNumber}): ${balance.currency} ${balance.current}`
-                );
-                totalCreditCardBalance += balance.current;
-                totalCardsFound++;
-              } else {
-                info(
-                  `scheduledPotTransfer - No balance data returned for ${card.displayName}`
-                );
-              }
-            } catch (cardError: any) {
-              info(
-                `scheduledPotTransfer - Error getting balance for ${card.displayName}:`,
-                cardError.message
-              );
-              info(`scheduledPotTransfer - Full error details:`, cardError);
-            }
-          }
-
-          info(
-            `scheduledPotTransfer - Total credit card balance: £${totalCreditCardBalance.toFixed(2)} (from ${totalCardsFound} cards)`
-          );
-
-          // Get Monzo OAuth access token for all operations
-          const monzoAccessToken = await monzoService.getMonzoAccessToken(
-            userId,
-            monzoClientId.value(),
-            monzoClientSecret.value()
-          );
-
-          if (!monzoAccessToken) {
-            info(
-              `scheduledPotTransfer - No Monzo OAuth access token found. User needs to connect Monzo with write access.`
-            );
-            continue;
-          }
-
-          // Get main account balance using the account ID from the automation rule
-          const mainAccountBalance = await monzoService.getAccountBalance(
-            monzoAccessToken,
-            rule.sourceAccount.accountId
-          );
-
-          if (mainAccountBalance === null) {
-            info(
-              'scheduledPotTransfer - Could not fetch main account balance, skipping user'
-            );
-            continue;
-          }
-
-          info(
-            `scheduledPotTransfer - Main account balance: £${mainAccountBalance.toFixed(2)}`
-          );
-
-          // Get the target pot balance using the pot ID from the automation rule
-          const currentPotBalance = await monzoService.getPotBalance(
-            monzoAccessToken,
-            rule.targetPot.potId
-          );
-
-          if (currentPotBalance === null) {
-            info(
-              `scheduledPotTransfer - Could not fetch target pot "${rule.targetPot.potName}" balance, skipping`
-            );
-            continue;
-          }
-
-          info(
-            `scheduledPotTransfer - Current pot balance: £${(currentPotBalance / 100).toFixed(2)}`
-          );
-
-          // Calculate transfer amount (full credit card balance)
-          // All credit card balances should now be positive (debt amount)
-          const transferAmount = totalCreditCardBalance * 100; // Convert to pence
-          const transferAmountPounds = transferAmount / 100;
-
-          if (transferAmount === 0 || totalCreditCardBalance === 0) {
-            info(
-              'scheduledPotTransfer - No credit card debt found, no transfer needed'
-            );
-            continue;
-          }
-
-          // Check minimum bank balance threshold
-          if (mainAccountBalance <= rule.minimumBankBalance / 100) {
-            info(
-              `scheduledPotTransfer - MINIMUM BALANCE CHECK FAILED: Main account balance (£${mainAccountBalance.toFixed(2)}) is at or below minimum threshold (£${(rule.minimumBankBalance / 100).toFixed(2)})`
-            );
-            info(
-              'scheduledPotTransfer - Skipping transfer to maintain minimum balance'
-            );
-            continue;
-          }
-
-          // Safety check: Ensure we have enough in main account
-          if (transferAmount > mainAccountBalance * 100) {
-            info(
-              `scheduledPotTransfer - INSUFFICIENT FUNDS: Need £${transferAmountPounds.toFixed(2)} but only have £${mainAccountBalance.toFixed(2)} in main account`
-            );
-            continue;
-          }
-
-          info(`\nscheduledPotTransfer - Transfer summary:`);
-          info(
-            `scheduledPotTransfer - Credit card debt: £${totalCreditCardBalance.toFixed(2)}`
-          );
-          info(
-            `scheduledPotTransfer - Current pot balance: £${(currentPotBalance / 100).toFixed(2)}`
-          );
-          info(
-            `scheduledPotTransfer - Main account balance: £${mainAccountBalance.toFixed(2)}`
-          );
-          info(
-            `scheduledPotTransfer - Transfer amount: £${transferAmountPounds.toFixed(2)}`
-          );
-          info(`scheduledPotTransfer - Target pot: ${rule.targetPot.potName}`);
-
-          // Execute the transfer!
-          info(`scheduledPotTransfer - Executing transfer...`);
-          await monzoService.transferToPot(
-            monzoAccessToken,
-            rule.sourceAccount.accountId,
-            rule.targetPot.potId,
-            transferAmount
-          );
-
-          info(`scheduledPotTransfer - Transfer completed successfully!`);
-        } catch (userError) {
-          console.error(
-            `scheduledPotTransfer - Error processing user ${userId}:`,
-            userError
-          );
-          // Continue with next user
+        if (tokensSnapshot.empty) {
+          info('scheduledPotTransfer - No tokens found for user, skipping');
+          continue;
         }
+
+        const userTokens = tokensSnapshot.docs.map((doc) => ({
+          provider: doc.data().provider,
+          deleted: doc.data().deleted,
+          hasAccessToken: !!doc.data().access_token,
+        }));
+
+        // Check for required tokens
+        const hasMonzoToken = userTokens.some(
+          (token) => !token.deleted && token.provider === 'monzo'
+        );
+
+        if (!hasMonzoToken) {
+          info(
+            'scheduledPotTransfer - No direct Monzo token found (needed for all operations), skipping user'
+          );
+          continue;
+        }
+
+        // Get Monzo OAuth access token once for all rules
+        const monzoAccessToken = await monzoService.getMonzoAccessToken(
+          userId,
+          monzoClientId.value(),
+          monzoClientSecret.value()
+        );
+
+        if (!monzoAccessToken) {
+          info(
+            `scheduledPotTransfer - No Monzo OAuth access token found. User needs to connect Monzo with write access. Skipping user.`
+          );
+          continue;
+        }
+
+        // Process each active rule
+        for (const rule of activeRules) {
+          info(`\n--- Processing rule: ${rule.id} ---`);
+          info(
+            `scheduledPotTransfer - Target pot: ${rule.targetPot.potName} (${rule.targetPot.potId})`
+          );
+          info(
+            `scheduledPotTransfer - Credit cards: ${rule.creditCards.length} selected`
+          );
+          rule.creditCards.forEach((card, index) => {
+            info(
+              `  ${index + 1}. ${card.displayName} (Provider: ${card.provider}, Account ID: ${card.accountId}, Last 4: ****${card.partialCardNumber})`
+            );
+          });
+          info(
+            `scheduledPotTransfer - Minimum bank balance: £${(rule.minimumBankBalance / 100).toFixed(2)}`
+          );
+
+          try {
+            // Get credit card balances for selected cards
+            let totalCreditCardBalance = 0;
+            let totalCardsFound = 0;
+
+            info(
+              `scheduledPotTransfer - Processing ${rule.creditCards.length} credit cards...`
+            );
+
+            for (const card of rule.creditCards) {
+              info(
+                `scheduledPotTransfer - Processing card: ${card.displayName} (Provider: ${card.provider}, Account ID: ${card.accountId})`
+              );
+
+              try {
+                info(
+                  `scheduledPotTransfer - Attempting to get balance for ${card.displayName}...`
+                );
+
+                let balance: any = null;
+
+                // Handle Monzo Flex accounts (provider === 'monzo')
+                if (card.provider === 'monzo') {
+                  // Get balance using Monzo API (returns number in pounds)
+                  const monzoBalance = await monzoService.getAccountBalance(
+                    monzoAccessToken,
+                    card.accountId
+                  );
+
+                  if (monzoBalance !== null) {
+                    // Monzo Flex balance is negative (debt owed)
+                    // Convert to positive to match TrueLayer format (positive = debt)
+                    const debtAmount = Math.abs(monzoBalance);
+
+                    // Convert to AccountBalance-like structure
+                    balance = {
+                      currency: 'GBP',
+                      current: debtAmount, // Positive value representing debt (in pounds)
+                      available: debtAmount,
+                      update_timestamp: new Date().toISOString(),
+                    };
+
+                    info(
+                      `scheduledPotTransfer - Monzo Flex raw balance: £${monzoBalance.toFixed(2)} (negative), converted to debt: £${debtAmount.toFixed(2)}`
+                    );
+                  }
+                } else {
+                  // Handle TrueLayer credit cards
+                  balance = await truelayerService.getCardBalance(
+                    userId,
+                    card.accountId,
+                    card.provider
+                  );
+                }
+
+                info(
+                  `scheduledPotTransfer - Balance response for ${card.displayName}:`,
+                  balance
+                );
+
+                if (balance) {
+                  info(
+                    `scheduledPotTransfer - ${card.displayName} (****${card.partialCardNumber}): ${balance.currency} ${balance.current}`
+                  );
+                  totalCreditCardBalance += balance.current;
+                  totalCardsFound++;
+                } else {
+                  info(
+                    `scheduledPotTransfer - No balance data returned for ${card.displayName}`
+                  );
+                }
+              } catch (cardError: any) {
+                info(
+                  `scheduledPotTransfer - Error getting balance for ${card.displayName}:`,
+                  cardError.message
+                );
+                info(`scheduledPotTransfer - Full error details:`, cardError);
+              }
+            }
+
+            info(
+              `scheduledPotTransfer - Total credit card balance: £${totalCreditCardBalance.toFixed(2)} (from ${totalCardsFound} cards)`
+            );
+
+            // Get main account balance using the account ID from the automation rule
+            const mainAccountBalance = await monzoService.getAccountBalance(
+              monzoAccessToken,
+              rule.sourceAccount.accountId
+            );
+
+            if (mainAccountBalance === null) {
+              info(
+                `scheduledPotTransfer - Could not fetch main account balance for rule ${rule.id}, skipping rule`
+              );
+              continue;
+            }
+
+            info(
+              `scheduledPotTransfer - Main account balance: £${mainAccountBalance.toFixed(2)}`
+            );
+
+            // Get the target pot balance using the pot ID from the automation rule
+            const currentPotBalance = await monzoService.getPotBalance(
+              monzoAccessToken,
+              rule.targetPot.potId
+            );
+
+            if (currentPotBalance === null) {
+              info(
+                `scheduledPotTransfer - Could not fetch target pot "${rule.targetPot.potName}" balance, skipping rule`
+              );
+              continue;
+            }
+
+            info(
+              `scheduledPotTransfer - Current pot balance: £${(currentPotBalance / 100).toFixed(2)}`
+            );
+
+            // Calculate transfer amount (full credit card balance)
+            const transferAmount = totalCreditCardBalance * 100; // Convert to pence
+            const transferAmountPounds = transferAmount / 100;
+
+            if (transferAmount === 0 || totalCreditCardBalance === 0) {
+              info(
+                `scheduledPotTransfer - No credit card debt found for rule ${rule.id}, no transfer needed`
+              );
+              continue;
+            }
+
+            // Check minimum bank balance threshold
+            if (mainAccountBalance <= rule.minimumBankBalance / 100) {
+              info(
+                `scheduledPotTransfer - MINIMUM BALANCE CHECK FAILED: Main account balance (£${mainAccountBalance.toFixed(2)}) is at or below minimum threshold (£${(rule.minimumBankBalance / 100).toFixed(2)})`
+              );
+              info(
+                `scheduledPotTransfer - Skipping transfer for rule ${rule.id} to maintain minimum balance`
+              );
+              continue;
+            }
+
+            // Safety check: Ensure we have enough in main account
+            if (transferAmount > mainAccountBalance * 100) {
+              info(
+                `scheduledPotTransfer - INSUFFICIENT FUNDS: Need £${transferAmountPounds.toFixed(2)} but only have £${mainAccountBalance.toFixed(2)} in main account`
+              );
+              info(
+                `scheduledPotTransfer - Skipping transfer for rule ${rule.id}`
+              );
+              continue;
+            }
+
+            info(
+              `\nscheduledPotTransfer - Transfer summary for rule ${rule.id}:`
+            );
+            info(
+              `scheduledPotTransfer - Credit card debt: £${totalCreditCardBalance.toFixed(2)}`
+            );
+            info(
+              `scheduledPotTransfer - Current pot balance: £${(currentPotBalance / 100).toFixed(2)}`
+            );
+            info(
+              `scheduledPotTransfer - Main account balance: £${mainAccountBalance.toFixed(2)}`
+            );
+            info(
+              `scheduledPotTransfer - Transfer amount: £${transferAmountPounds.toFixed(2)}`
+            );
+            info(
+              `scheduledPotTransfer - Target pot: ${rule.targetPot.potName}`
+            );
+
+            // Execute the transfer!
+            info(
+              `scheduledPotTransfer - Executing transfer for rule ${rule.id}...`
+            );
+            await monzoService.transferToPot(
+              monzoAccessToken,
+              rule.sourceAccount.accountId,
+              rule.targetPot.potId,
+              transferAmount
+            );
+
+            info(
+              `scheduledPotTransfer - Transfer completed successfully for rule ${rule.id}!`
+            );
+          } catch (ruleError: any) {
+            console.error(
+              `scheduledPotTransfer - Error processing rule ${rule.id}:`,
+              ruleError
+            );
+            // Continue with next rule
+          }
+        }
+
+        info(
+          `scheduledPotTransfer - Completed processing all rules for user ${userId}`
+        );
       }
 
       info(
