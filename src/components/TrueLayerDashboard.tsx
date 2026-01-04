@@ -258,6 +258,8 @@ export default function TrueLayerDashboard() {
     );
   }
 
+  return <div></div>;
+
   // Collect all accounts and cards from all providers
   // const allAccounts: (AccountData & {
   //   balance?: AccountBalance;
