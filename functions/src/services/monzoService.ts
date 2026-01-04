@@ -1,3 +1,5 @@
+import { info } from 'firebase-functions/logger';
+
 export class MonzoService {
   /**
    * Get account balance using Monzo API
@@ -19,7 +21,7 @@ export class MonzoService {
 
       if (!response.ok) {
         console.error(
-          `Failed to fetch account balance: ${response.statusText}`
+          `monzoService - Failed to fetch account balance: ${response.statusText}`
         );
         return null;
       }
@@ -27,7 +29,7 @@ export class MonzoService {
       const data = await response.json();
       return data.balance / 100; // Convert from pence to pounds
     } catch (error) {
-      console.error('Error getting account balance:', error);
+      console.error('monzoService - Error getting account balance:', error);
       return null;
     }
   }
@@ -49,17 +51,19 @@ export class MonzoService {
 
       if (!response.ok) {
         if (response.status === 404) {
-          console.log(`  ⚠️ Pot with ID ${potId} not found`);
+          info(`monzoService - Pot with ID ${potId} not found`);
           return null;
         }
-        console.error(`Failed to fetch pot: ${response.statusText}`);
+        console.error(
+          `monzoService - Failed to fetch pot: ${response.statusText}`
+        );
         return null;
       }
 
       const data = await response.json();
       return data.balance; // Pot balance is already in pence
     } catch (error) {
-      console.error('Error getting pot balance:', error);
+      console.error('monzoService - Error getting pot balance:', error);
       return null;
     }
   }
@@ -85,13 +89,13 @@ export class MonzoService {
       const amountInPence = Math.abs(Math.round(amount * 100));
 
       if (amountInPence === 0) {
-        console.log('  ℹ️ Transfer amount is £0, skipping');
+        info('monzoService - Transfer amount is £0, skipping');
         return false;
       }
 
       const action = isDeposit ? 'deposit' : 'withdraw';
-      console.log(
-        `💸 ${isDeposit ? 'Depositing' : 'Withdrawing'} £${Math.abs(amount).toFixed(2)} ${isDeposit ? 'into' : 'from'} pot...`
+      info(
+        `monzoService - ${isDeposit ? 'Depositing' : 'Withdrawing'} £${Math.abs(amount).toFixed(2)} ${isDeposit ? 'into' : 'from'} pot...`
       );
 
       // Build the endpoint and parameters based on action
@@ -121,17 +125,21 @@ export class MonzoService {
 
       if (!response.ok) {
         const errorData = await response.text();
-        console.error('Monzo API error:', errorData);
+        console.error('monzoService - Monzo API error:', errorData);
         throw new Error(`Failed to ${action}: ${response.statusText}`);
       }
 
       const data = await response.json();
-      console.log(`  ✅ ${isDeposit ? 'Deposit' : 'Withdrawal'} successful!`);
-      console.log(`  📊 New pot balance: £${(data.balance / 100).toFixed(2)}`);
+      info(
+        `monzoService - ${isDeposit ? 'Deposit' : 'Withdrawal'} successful!`
+      );
+      info(
+        `monzoService - New pot balance: £${(data.balance / 100).toFixed(2)}`
+      );
 
       return true;
     } catch (error) {
-      console.error('Error transferring to/from pot:', error);
+      console.error('monzoService - Error transferring to/from pot:', error);
       throw error;
     }
   }
@@ -154,8 +162,8 @@ export class MonzoService {
       const encryptedTokens = await getEncryptedTokens(userId, 'monzo');
 
       if (!encryptedTokens) {
-        console.log(
-          '⚠️ No Monzo OAuth tokens found for user. User needs to enable automation.'
+        info(
+          'monzoService - No Monzo OAuth tokens found for user. User needs to enable automation.'
         );
         return null;
       }
@@ -164,7 +172,7 @@ export class MonzoService {
 
       // Check if token is expired
       if (Date.now() >= tokens.expires_at) {
-        console.log('🔄 Monzo token expired, refreshing...');
+        info('monzoService - Monzo token expired, refreshing...');
         await refreshTokens(userId, 'monzo', clientId, clientSecret);
 
         // Get refreshed tokens
@@ -173,7 +181,7 @@ export class MonzoService {
           'monzo'
         );
         if (!refreshedEncryptedTokens) {
-          console.error('❌ Failed to get refreshed Monzo tokens');
+          console.error('monzoService - Failed to get refreshed Monzo tokens');
           return null;
         }
 
@@ -183,7 +191,7 @@ export class MonzoService {
 
       return tokens.access_token;
     } catch (error) {
-      console.error('Error getting Monzo access token:', error);
+      console.error('monzoService - Error getting Monzo access token:', error);
       return null;
     }
   }

@@ -1,6 +1,8 @@
 import { dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { FlatCompat } from '@eslint/eslintrc';
+import typescriptEslint from '@typescript-eslint/eslint-plugin';
+import typescriptParser from '@typescript-eslint/parser';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -13,17 +15,18 @@ const compat = new FlatCompat({
 // Load Next.js configs individually to avoid circular reference issues
 let nextConfigs = [];
 try {
-  // Use compat.config() instead of compat.extends() to avoid circular references
   const config1 = compat.config({
     extends: ['next/core-web-vitals'],
   });
   const config2 = compat.config({
     extends: ['next/typescript'],
   });
-  nextConfigs = [...(Array.isArray(config1) ? config1 : [config1]), ...(Array.isArray(config2) ? config2 : [config2])].filter(Boolean);
+  nextConfigs = [
+    ...(Array.isArray(config1) ? config1 : [config1]),
+    ...(Array.isArray(config2) ? config2 : [config2]),
+  ].filter(Boolean);
 } catch (error) {
   // Silently fail and continue without Next.js presets
-  // This is a known issue with FlatCompat and circular references
   nextConfigs = [];
 }
 
@@ -48,10 +51,14 @@ const eslintConfig = [
   {
     files: ['**/*.ts', '**/*.tsx'],
     languageOptions: {
+      parser: typescriptParser,
       parserOptions: {
         project: './tsconfig.json',
         tsconfigRootDir: import.meta.dirname,
       },
+    },
+    plugins: {
+      '@typescript-eslint': typescriptEslint,
     },
     rules: {
       '@typescript-eslint/no-explicit-any': 'warn',

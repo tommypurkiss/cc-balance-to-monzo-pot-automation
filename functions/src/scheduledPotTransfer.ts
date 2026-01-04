@@ -3,6 +3,7 @@ import * as admin from 'firebase-admin';
 import { TrueLayerService } from './services/truelayerService';
 import { MonzoService } from './services/monzoService';
 import { defineSecret } from 'firebase-functions/params';
+import { info } from 'firebase-functions/logger';
 // We'll use the HTTP encryption service for consistency with frontend
 
 // Initialize Firebase Admin
@@ -71,7 +72,9 @@ export const scheduledPotTransfer = onSchedule(
   async (event) => {
     const timestamp = new Date().toISOString();
 
-    console.log('🚀 Scheduled pot transfer started at:', timestamp);
+    info(
+      `scheduledPotTransfer - Scheduled pot transfer started at: ${timestamp}`
+    );
 
     // Initialize services
     const truelayerService = new TrueLayerService(
@@ -80,8 +83,8 @@ export const scheduledPotTransfer = onSchedule(
     );
 
     const monzoService = new MonzoService();
-    console.log('📅 Scheduled time:', event.scheduleTime);
-    console.log('📝 Job name:', event.jobName);
+    info(`scheduledPotTransfer - Scheduled time: ${event.scheduleTime}`);
+    info(`scheduledPotTransfer - Job name: ${event.jobName}`);
 
     try {
       const db = admin.firestore();
@@ -92,12 +95,12 @@ export const scheduledPotTransfer = onSchedule(
         .get();
 
       if (automationRulesSnapshot.empty) {
-        console.log('ℹ️ No users with automation rules found');
+        info('scheduledPotTransfer - No users with automation rules found');
         return;
       }
 
-      console.log(
-        `📊 Processing ${automationRulesSnapshot.size} user(s) with automation rules`
+      info(
+        `scheduledPotTransfer - Processing ${automationRulesSnapshot.size} user(s) with automation rules`
       );
 
       // Process each user's automation rules
@@ -106,32 +109,36 @@ export const scheduledPotTransfer = onSchedule(
         const userData = doc.data();
         const rules: AutomationRule[] = userData.rules || [];
 
-        console.log(
-          `\n👤 Processing user: ${userId} (${rules.length} rule(s))`
+        info(
+          `\nscheduledPotTransfer - Processing user: ${userId} (${rules.length} rule(s))`
         );
 
         // Find active automation rules
         const activeRules = rules.filter((rule) => rule.isActive);
 
         if (activeRules.length === 0) {
-          console.log('  ⚠️ No active automation rules found, skipping user');
+          info(
+            'scheduledPotTransfer - No active automation rules found, skipping user'
+          );
           continue;
         }
 
         // Process the first active rule (for now, we only support one rule per user)
         const rule = activeRules[0];
-        console.log(`  📋 Processing rule: ${rule.id}`);
-        console.log(
-          `  🎯 Target pot: ${rule.targetPot.potName} (${rule.targetPot.potId})`
+        info(`scheduledPotTransfer - Processing rule: ${rule.id}`);
+        info(
+          `scheduledPotTransfer - Target pot: ${rule.targetPot.potName} (${rule.targetPot.potId})`
         );
-        console.log(`  💳 Credit cards: ${rule.creditCards.length} selected`);
+        info(
+          `scheduledPotTransfer - Credit cards: ${rule.creditCards.length} selected`
+        );
         rule.creditCards.forEach((card, index) => {
-          console.log(
-            `    ${index + 1}. ${card.displayName} (Provider: ${card.provider}, Account ID: ${card.accountId}, Last 4: ****${card.partialCardNumber})`
+          info(
+            `${index + 1}. ${card.displayName} (Provider: ${card.provider}, Account ID: ${card.accountId}, Last 4: ****${card.partialCardNumber})`
           );
         });
-        console.log(
-          `  💰 Minimum bank balance: £${(rule.minimumBankBalance / 100).toFixed(2)}`
+        info(
+          `scheduledPotTransfer - Minimum bank balance: £${(rule.minimumBankBalance / 100).toFixed(2)}`
         );
 
         try {
@@ -143,7 +150,7 @@ export const scheduledPotTransfer = onSchedule(
             .get();
 
           if (tokensSnapshot.empty) {
-            console.log('  ⚠️ No tokens found for user, skipping');
+            info('scheduledPotTransfer - No tokens found for user, skipping');
             continue;
           }
 
@@ -159,8 +166,8 @@ export const scheduledPotTransfer = onSchedule(
           );
 
           if (!hasMonzoToken) {
-            console.log(
-              '  ⚠️ No direct Monzo token found (needed for all operations), skipping'
+            info(
+              'scheduledPotTransfer - No direct Monzo token found (needed for all operations), skipping'
             );
             continue;
           }
@@ -169,18 +176,18 @@ export const scheduledPotTransfer = onSchedule(
           let totalCreditCardBalance = 0;
           let totalCardsFound = 0;
 
-          console.log(
-            `  🔍 Processing ${rule.creditCards.length} credit cards...`
+          info(
+            `scheduledPotTransfer - Processing ${rule.creditCards.length} credit cards...`
           );
 
           for (const card of rule.creditCards) {
-            console.log(
-              `  📋 Processing card: ${card.displayName} (Provider: ${card.provider}, Account ID: ${card.accountId})`
+            info(
+              `scheduledPotTransfer - Processing card: ${card.displayName} (Provider: ${card.provider}, Account ID: ${card.accountId})`
             );
 
             try {
-              console.log(
-                `  🔄 Attempting to get balance for ${card.displayName}...`
+              info(
+                `scheduledPotTransfer - Attempting to get balance for ${card.displayName}...`
               );
 
               let balance: any = null;
@@ -194,8 +201,8 @@ export const scheduledPotTransfer = onSchedule(
                 );
 
                 if (!monzoAccessToken) {
-                  console.log(
-                    `    ⚠️ No Monzo access token for ${card.displayName}, skipping`
+                  info(
+                    `scheduledPotTransfer - No Monzo access token for ${card.displayName}, skipping`
                   );
                   continue;
                 }
@@ -220,8 +227,8 @@ export const scheduledPotTransfer = onSchedule(
                     update_timestamp: new Date().toISOString(),
                   };
 
-                  console.log(
-                    `    📊 Monzo Flex raw balance: £${monzoBalance.toFixed(2)} (negative), converted to debt: £${debtAmount.toFixed(2)}`
+                  info(
+                    `scheduledPotTransfer - Monzo Flex raw balance: £${monzoBalance.toFixed(2)} (negative), converted to debt: £${debtAmount.toFixed(2)}`
                   );
                 }
               } else {
@@ -233,33 +240,33 @@ export const scheduledPotTransfer = onSchedule(
                 );
               }
 
-              console.log(
-                `  📊 Balance response for ${card.displayName}:`,
+              info(
+                `scheduledPotTransfer - Balance response for ${card.displayName}:`,
                 balance
               );
 
               if (balance) {
-                console.log(
-                  `    ✅ ${card.displayName} (****${card.partialCardNumber}): ${balance.currency} ${balance.current}`
+                info(
+                  `scheduledPotTransfer - ${card.displayName} (****${card.partialCardNumber}): ${balance.currency} ${balance.current}`
                 );
                 totalCreditCardBalance += balance.current;
                 totalCardsFound++;
               } else {
-                console.log(
-                  `    ⚠️ No balance data returned for ${card.displayName}`
+                info(
+                  `scheduledPotTransfer - No balance data returned for ${card.displayName}`
                 );
               }
             } catch (cardError: any) {
-              console.log(
-                `    ❌ Error getting balance for ${card.displayName}:`,
+              info(
+                `scheduledPotTransfer - Error getting balance for ${card.displayName}:`,
                 cardError.message
               );
-              console.log(`    🔍 Full error details:`, cardError);
+              info(`scheduledPotTransfer - Full error details:`, cardError);
             }
           }
 
-          console.log(
-            `  💳 Total credit card balance: £${totalCreditCardBalance.toFixed(2)} (from ${totalCardsFound} cards)`
+          info(
+            `scheduledPotTransfer - Total credit card balance: £${totalCreditCardBalance.toFixed(2)} (from ${totalCardsFound} cards)`
           );
 
           // Get Monzo OAuth access token for all operations
@@ -270,8 +277,8 @@ export const scheduledPotTransfer = onSchedule(
           );
 
           if (!monzoAccessToken) {
-            console.log(
-              `  ⚠️ No Monzo OAuth access token found. User needs to connect Monzo with write access.`
+            info(
+              `scheduledPotTransfer - No Monzo OAuth access token found. User needs to connect Monzo with write access.`
             );
             continue;
           }
@@ -283,14 +290,14 @@ export const scheduledPotTransfer = onSchedule(
           );
 
           if (mainAccountBalance === null) {
-            console.log(
-              '  ⚠️ Could not fetch main account balance, skipping user'
+            info(
+              'scheduledPotTransfer - Could not fetch main account balance, skipping user'
             );
             continue;
           }
 
-          console.log(
-            `  💰 Main account balance: £${mainAccountBalance.toFixed(2)}`
+          info(
+            `scheduledPotTransfer - Main account balance: £${mainAccountBalance.toFixed(2)}`
           );
 
           // Get the target pot balance using the pot ID from the automation rule
@@ -300,14 +307,14 @@ export const scheduledPotTransfer = onSchedule(
           );
 
           if (currentPotBalance === null) {
-            console.log(
-              `  ⚠️ Could not fetch target pot "${rule.targetPot.potName}" balance, skipping`
+            info(
+              `scheduledPotTransfer - Could not fetch target pot "${rule.targetPot.potName}" balance, skipping`
             );
             continue;
           }
 
-          console.log(
-            `  🏦 Current pot balance: £${(currentPotBalance / 100).toFixed(2)}`
+          info(
+            `scheduledPotTransfer - Current pot balance: £${(currentPotBalance / 100).toFixed(2)}`
           );
 
           // Calculate transfer amount (full credit card balance)
@@ -316,44 +323,48 @@ export const scheduledPotTransfer = onSchedule(
           const transferAmountPounds = transferAmount / 100;
 
           if (transferAmount === 0 || totalCreditCardBalance === 0) {
-            console.log('  ℹ️ No credit card debt found, no transfer needed');
+            info(
+              'scheduledPotTransfer - No credit card debt found, no transfer needed'
+            );
             continue;
           }
 
           // Check minimum bank balance threshold
           if (mainAccountBalance <= rule.minimumBankBalance / 100) {
-            console.log(
-              `  ⚠️ MINIMUM BALANCE CHECK FAILED: Main account balance (£${mainAccountBalance.toFixed(2)}) is at or below minimum threshold (£${(rule.minimumBankBalance / 100).toFixed(2)})`
+            info(
+              `scheduledPotTransfer - MINIMUM BALANCE CHECK FAILED: Main account balance (£${mainAccountBalance.toFixed(2)}) is at or below minimum threshold (£${(rule.minimumBankBalance / 100).toFixed(2)})`
             );
-            console.log('  💡 Skipping transfer to maintain minimum balance');
+            info(
+              'scheduledPotTransfer - Skipping transfer to maintain minimum balance'
+            );
             continue;
           }
 
           // Safety check: Ensure we have enough in main account
           if (transferAmount > mainAccountBalance * 100) {
-            console.log(
-              `  ⚠️ INSUFFICIENT FUNDS: Need £${transferAmountPounds.toFixed(2)} but only have £${mainAccountBalance.toFixed(2)} in main account`
+            info(
+              `scheduledPotTransfer - INSUFFICIENT FUNDS: Need £${transferAmountPounds.toFixed(2)} but only have £${mainAccountBalance.toFixed(2)} in main account`
             );
             continue;
           }
 
-          console.log(`\n  💡 Transfer summary:`);
-          console.log(
-            `    Credit card debt: £${totalCreditCardBalance.toFixed(2)}`
+          info(`\nscheduledPotTransfer - Transfer summary:`);
+          info(
+            `scheduledPotTransfer - Credit card debt: £${totalCreditCardBalance.toFixed(2)}`
           );
-          console.log(
-            `    Current pot balance: £${(currentPotBalance / 100).toFixed(2)}`
+          info(
+            `scheduledPotTransfer - Current pot balance: £${(currentPotBalance / 100).toFixed(2)}`
           );
-          console.log(
-            `    Main account balance: £${mainAccountBalance.toFixed(2)}`
+          info(
+            `scheduledPotTransfer - Main account balance: £${mainAccountBalance.toFixed(2)}`
           );
-          console.log(
-            `    Transfer amount: £${transferAmountPounds.toFixed(2)}`
+          info(
+            `scheduledPotTransfer - Transfer amount: £${transferAmountPounds.toFixed(2)}`
           );
-          console.log(`    Target pot: ${rule.targetPot.potName}`);
+          info(`scheduledPotTransfer - Target pot: ${rule.targetPot.potName}`);
 
           // Execute the transfer!
-          console.log(`  🚀 Executing transfer...`);
+          info(`scheduledPotTransfer - Executing transfer...`);
           await monzoService.transferToPot(
             monzoAccessToken,
             rule.sourceAccount.accountId,
@@ -361,16 +372,24 @@ export const scheduledPotTransfer = onSchedule(
             transferAmount
           );
 
-          console.log(`  ✅ Transfer completed successfully!`);
+          info(`scheduledPotTransfer - Transfer completed successfully!`);
         } catch (userError) {
-          console.error(`❌ Error processing user ${userId}:`, userError);
+          console.error(
+            `scheduledPotTransfer - Error processing user ${userId}:`,
+            userError
+          );
           // Continue with next user
         }
       }
 
-      console.log('\n✅ Scheduled pot transfer completed successfully');
+      info(
+        '\nscheduledPotTransfer - Scheduled pot transfer completed successfully'
+      );
     } catch (error) {
-      console.error('❌ Error in scheduled pot transfer:', error);
+      console.error(
+        'scheduledPotTransfer - Error in scheduled pot transfer:',
+        error
+      );
       throw error;
     }
   }

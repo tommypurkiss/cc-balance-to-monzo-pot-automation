@@ -6,27 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { UpdateUserData } from '@/types/user';
 import { clientStorage } from '@/lib/clientStorage';
-
-const getProviderDisplayName = (providerId: string) => {
-  const providerNames: { [key: string]: string } = {
-    amex: 'American Express',
-    'ob-amex': 'American Express',
-    barclaycard: 'Barclaycard',
-    'ob-barclaycard': 'Barclaycard',
-    hsbc: 'HSBC',
-    'ob-hsbc': 'HSBC',
-    lloyds: 'Lloyds Bank',
-    'ob-lloyds': 'Lloyds Bank',
-    monzo: 'Monzo',
-    'ob-monzo': 'Monzo',
-    natwest: 'NatWest',
-    'ob-natwest': 'NatWest',
-    santander: 'Santander',
-    'ob-santander': 'Santander',
-    truelayer: 'TrueLayer',
-  };
-  return providerNames[providerId] || providerId;
-};
+import { getProviderDisplayName } from '@/shared-utils/getProviderNames';
 
 export default function UserProfile() {
   const { userProfile, loading, error, updateProfile } = useUser();
