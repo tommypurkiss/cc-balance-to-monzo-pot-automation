@@ -308,6 +308,7 @@ class SessionStorageService {
     }
   }
 
+  // TODO: fix truelayer accounts api call
   // // Get accounts for a provider
   // async getAccounts(provider: string): Promise<AccountData[]> {
   //   try {

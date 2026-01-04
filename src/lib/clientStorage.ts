@@ -492,65 +492,69 @@ class ClientStorageService {
     }
   }
 
-  // // Get accounts for a provider
-  // async getAccounts(provider: string): Promise<AccountData[]> {
-  //   try {
-  //     if (provider === 'monzo') {
-  //       // Use Monzo's direct API endpoint
-  //       const data = await this.apiCall<{ accounts: AccountData[] }>(
-  //         '/accounts',
-  //         provider
-  //       );
-  //       return data.accounts || [];
-  //     }
+  // Get accounts for a provider
+  async getAccounts(provider: string): Promise<AccountData[]> {
+    try {
+      if (provider === 'monzo') {
+        // Use Monzo's direct API endpoint
+        const data = await this.apiCall<{ accounts: AccountData[] }>(
+          '/accounts',
+          provider
+        );
+        return data.accounts || [];
+      }
 
-  //     const data = await this.apiCall<{ results: AccountData[] }>(
-  //       '/data/v1/accounts',
-  //       provider
-  //     );
-  //     return data.results || [];
-  //   } catch (error) {
-  //     throw error;
-  //   }
-  // }
+      return [];
 
-  // // Get account balance
-  // async getAccountBalance(
-  //   accountId: string,
-  //   provider: string
-  // ): Promise<AccountBalance | null> {
-  //   try {
-  //     if (provider === 'monzo') {
-  //       // Use Monzo's direct API endpoint
-  //       const data = await this.apiCall<any>(
-  //         `/balance?account_id=${accountId}`,
-  //         provider
-  //       );
-  //       if (!data) return null;
+      // TODO: fix the truelayer accounts api call
+      // const data = await this.apiCall<{ results: AccountData[] }>(
+      //   '/data/v1/accounts',
+      //   provider
+      // );
+      // return data.results || [];
+    } catch (error) {
+      throw error;
+    }
+  }
 
-  //       // Monzo API returns balance in pence, map to AccountBalance format
-  //       // For Flex accounts, balance is negative (representing debt)
-  //       const balanceInPence = data.balance || 0;
+  // Get account balance
+  async getAccountBalance(
+    accountId: string,
+    provider: string
+  ): Promise<AccountBalance | null> {
+    try {
+      if (provider === 'monzo') {
+        // Use Monzo's direct API endpoint
+        const data = await this.apiCall<any>(
+          `/balance?account_id=${accountId}`,
+          provider
+        );
+        if (!data) return null;
 
-  //       return {
-  //         currency: data.currency || 'GBP',
-  //         balance: balanceInPence, // Keep in pence for consistent handling
-  //         current: balanceInPence, // Use for current balance
-  //         available: data.interimAvailable || balanceInPence, // Flex may have interimAvailable
-  //         update_timestamp: new Date().toISOString(),
-  //         spend_today: data.spend_today,
-  //       } as AccountBalance;
-  //     }
+        // Monzo API returns balance in pence, map to AccountBalance format
+        // For Flex accounts, balance is negative (representing debt)
+        const balanceInPence = data.balance || 0;
 
-  //     const data = await this.apiCall<{ results: AccountBalance[] }>(
-  //       `/data/v1/accounts/${accountId}/balance`,
-  //       provider
-  //     );
-  //     return data.results?.[0] || null;
-  //   } catch (error) {
-  //     throw error;
-  //   }
-  // }
+        return {
+          currency: data.currency || 'GBP',
+          balance: balanceInPence, // Keep in pence for consistent handling
+          current: balanceInPence, // Use for current balance
+          available: data.interimAvailable || balanceInPence, // Flex may have interimAvailable
+          update_timestamp: new Date().toISOString(),
+          spend_today: data.spend_today,
+        } as AccountBalance;
+      }
+
+      // const data = await this.apiCall<{ results: AccountBalance[] }>(
+      //   `/data/v1/accounts/${accountId}/balance`,
+      //   provider
+      // );
+      // return data.results?.[0] || null;
+      return null;
+    } catch (error) {
+      throw error;
+    }
+  }
 
   // Get all data for all connected providers
   async getAllData(): Promise<{
@@ -609,47 +613,47 @@ class ClientStorageService {
         }
 
         // Get accounts and their balances
-        // try {
-        //   const accounts = await this.getAccounts(session.provider);
-        //   for (const account of accounts) {
-        //     try {
-        //       // Use the correct account ID field for Monzo vs TrueLayer
-        //       const accountId = account.id || account.account_id;
-        //       if (!accountId) {
-        //         console.warn(`No account ID found for account:`, account);
-        //         allData[session.provider].accounts.push(account);
-        //         hasAnyData = true;
-        //         continue;
-        //       }
+        try {
+          const accounts = await this.getAccounts(session.provider);
+          for (const account of accounts) {
+            try {
+              // Use the correct account ID field for Monzo vs TrueLayer
+              const accountId = account.id || account.account_id;
+              if (!accountId) {
+                console.warn(`No account ID found for account:`, account);
+                allData[session.provider].accounts.push(account);
+                hasAnyData = true;
+                continue;
+              }
 
-        //       const balance = await this.getAccountBalance(
-        //         accountId,
-        //         session.provider
-        //       );
-        //       allData[session.provider].accounts.push({ ...account, balance });
-        //       hasAnyData = true;
-        //     } catch (error) {
-        //       console.warn(
-        //         `Failed to get balance for account ${account.id || account.account_id}:`,
-        //         error
-        //       );
-        //       allData[session.provider].accounts.push(account);
-        //       hasAnyData = true;
-        //     }
-        //   }
-        // } catch (error) {
-        //   console.warn(
-        //     `Failed to get accounts for ${session.provider}:`,
-        //     error
-        //   );
-        //   if (
-        //     error instanceof Error &&
-        //     (error.message.includes('invalid_token') ||
-        //       error.message.includes('401'))
-        //   ) {
-        //     throw error;
-        //   }
-        // }
+              const balance = await this.getAccountBalance(
+                accountId,
+                session.provider
+              );
+              allData[session.provider].accounts.push({ ...account, balance });
+              hasAnyData = true;
+            } catch (error) {
+              console.warn(
+                `Failed to get balance for account ${account.id || account.account_id}:`,
+                error
+              );
+              allData[session.provider].accounts.push(account);
+              hasAnyData = true;
+            }
+          }
+        } catch (error) {
+          console.warn(
+            `Failed to get accounts for ${session.provider}:`,
+            error
+          );
+          if (
+            error instanceof Error &&
+            (error.message.includes('invalid_token') ||
+              error.message.includes('401'))
+          ) {
+            throw error;
+          }
+        }
 
         // Cache the data for this provider
         this.setCache(session.provider, allData[session.provider]);
