@@ -75,11 +75,88 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 }
 
 // POST - Create or update automation rule
+// export async function POST(request: NextRequest): Promise<NextResponse> {
+//   try {
+//     const body = await request.json();
+//     const {
+//       userId,
+//       sourceAccount,
+//       targetPot,
+//       creditCards,
+//       minimumBankBalance,
+//     } = body;
+
+//     if (
+//       !userId ||
+//       !sourceAccount ||
+//       !targetPot ||
+//       !creditCards ||
+//       minimumBankBalance === undefined
+//     ) {
+//       return NextResponse.json(
+//         { error: 'Missing required fields' },
+//         { status: 400 }
+//       );
+//     }
+
+//     // Validate minimum bank balance (should be positive number in pence)
+//     if (typeof minimumBankBalance !== 'number' || minimumBankBalance < 0) {
+//       return NextResponse.json(
+//         { error: 'Minimum bank balance must be a positive number' },
+//         { status: 400 }
+//       );
+//     }
+
+//     // Validate credit cards array
+//     if (!Array.isArray(creditCards) || creditCards.length === 0) {
+//       return NextResponse.json(
+//         { error: 'At least one credit card must be selected' },
+//         { status: 400 }
+//       );
+//     }
+
+//     const db = getAdminDb();
+//     const automationRef = db.collection('automation_rules').doc(userId);
+
+//     // Create the automation rule
+//     const automationRule: AutomationRule = {
+//       id: `rule_${Date.now()}`,
+//       userId,
+//       isActive: true,
+//       createdAt: new Date(),
+//       updatedAt: new Date(),
+//       sourceAccount,
+//       targetPot,
+//       creditCards,
+//       minimumBankBalance,
+//       transferType: 'full_balance',
+//     };
+
+//     // For now, we'll store one rule per user (can be extended later)
+//     await automationRef.set({
+//       rules: [automationRule],
+//       updatedAt: new Date(),
+//     });
+
+//     return NextResponse.json({
+//       success: true,
+//       rule: automationRule,
+//     });
+//   } catch (error) {
+//     console.error('Error creating automation rule:', error);
+//     return NextResponse.json(
+//       { error: 'Internal server error' },
+//       { status: 500 }
+//     );
+//   }
+// }
+// POST - Create or update automation rule
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     const body = await request.json();
     const {
       userId,
+      ruleId, // Add this to check if we're editing
       sourceAccount,
       targetPot,
       creditCards,
@@ -117,33 +194,75 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const db = getAdminDb();
     const automationRef = db.collection('automation_rules').doc(userId);
+    const automationDoc = await automationRef.get();
 
-    // Create the automation rule
-    const automationRule: AutomationRule = {
-      id: `rule_${Date.now()}`,
-      userId,
-      isActive: true,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      sourceAccount,
-      targetPot,
-      creditCards,
-      minimumBankBalance,
-      transferType: 'full_balance',
-    };
+    let rules: AutomationRule[] = [];
 
-    // For now, we'll store one rule per user (can be extended later)
-    await automationRef.set({
-      rules: [automationRule],
-      updatedAt: new Date(),
-    });
+    if (automationDoc.exists) {
+      const automationData = automationDoc.data();
+      rules = automationData?.rules || [];
+    }
 
-    return NextResponse.json({
-      success: true,
-      rule: automationRule,
-    });
+    if (ruleId) {
+      // UPDATE existing rule
+      const ruleIndex = rules.findIndex((rule) => rule.id === ruleId);
+
+      if (ruleIndex === -1) {
+        return NextResponse.json(
+          { error: 'Automation rule not found' },
+          { status: 404 }
+        );
+      }
+
+      // Update the existing rule
+      rules[ruleIndex] = {
+        ...rules[ruleIndex],
+        sourceAccount,
+        targetPot,
+        creditCards,
+        minimumBankBalance,
+        updatedAt: new Date(),
+      };
+
+      await automationRef.set({
+        rules,
+        updatedAt: new Date(),
+      });
+
+      return NextResponse.json({
+        success: true,
+        rule: rules[ruleIndex],
+      });
+    } else {
+      // CREATE new rule
+      const newRule: AutomationRule = {
+        id: `rule_${Date.now()}`,
+        userId,
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        sourceAccount,
+        targetPot,
+        creditCards,
+        minimumBankBalance,
+        transferType: 'full_balance',
+      };
+
+      // Add new rule to existing rules array
+      rules.push(newRule);
+
+      await automationRef.set({
+        rules,
+        updatedAt: new Date(),
+      });
+
+      return NextResponse.json({
+        success: true,
+        rule: newRule,
+      });
+    }
   } catch (error) {
-    console.error('Error creating automation rule:', error);
+    console.error('Error creating/updating automation rule:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
