@@ -10,6 +10,7 @@ import {
   updateProfile,
 } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
+import { useRouter } from 'next/navigation';
 
 interface AuthContextType {
   currentUser: User | null;
@@ -36,6 +37,7 @@ interface AuthProviderProps {
 export function AuthProvider({ children }: AuthProviderProps) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   async function signup(email: string, password: string, displayName?: string) {
     const { user } = await createUserWithEmailAndPassword(
@@ -53,7 +55,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }
 
   async function logout() {
-    await signOut(auth);
+    await signOut(auth).then(() => {
+      router.push('/signin');
+    });
   }
 
   useEffect(() => {
